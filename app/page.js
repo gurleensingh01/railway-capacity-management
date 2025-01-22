@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Page() {
     return (
         <div
@@ -24,6 +26,21 @@ export default function Page() {
             >
                 Get capacity and live weather data for railway stations
             </p>
+            <Link
+                href="/railway-finance-management"
+                style={{
+                    marginTop: "20px",
+                    padding: "10px 20px",
+                    backgroundColor: "#223B34",
+                    color: "#FFFFFF",
+                    fontSize: "1.2rem",
+                    fontWeight: "bold",
+                    borderRadius: "5px",
+                    textDecoration: "none",
+                }}
+            >
+                Go to Next Page
+            </Link>
         </div>
     );
 }
