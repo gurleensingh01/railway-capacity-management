@@ -8,19 +8,24 @@ export default function Page() {
     const onSubmit = (event) => {
         event.preventDefault();
         const input = event.target;
-        const e = input[0].value;
-        const p = input[1].value;
+        const e = input.email.value;
+        const p = input.password.value;
 
-        // TODO: auth on firebase
-        // TODO: (?) access token cookie
-        var success = true;
-        if (success) {
-            const userId = "user123";
-            const userToken = "7361380427";
-            router.push(`/dashboard?userId=${userId}&userToken=${userToken}`);
+        if (e != null && e.length > 0 && p != null && p.length > 0){
+            // TODO: auth on firebase
+            // TODO: access token cookie
+            var success = true;
+            if (success) {
+                const userId = "user123";
+                const userToken = "7361380427";
+                router.push(`/dashboard?userId=${userId}&userToken=${userToken}`);
+            } else {
+                // TODO: better unauthorized component / notification
+                alert("Unauthorized");
+            }
         } else {
-            // TODO: better unauthorized page / notification
-            alert("Unauthorized");
+            // TODO: better unauthorized component / notification
+            alert("Please fill out e-mail/password fields.");
         }
     }
     return (
@@ -34,23 +39,24 @@ export default function Page() {
                 <form onSubmit={onSubmit} className="flex flex-col">
                     <h3 className="text-med font-bold pl-2 pb-2">E-mail:</h3>
                     <input
+                        name="email"
                         type="email"
                         placeholder="e-mail"
-                        className="w-[80%] max-w-[400px] h-16 pl-6 mb-12"
+                        className="w-[80%] max-w-[560px] h-16 pl-6 mb-12"
                     />
 
                     <h3 className="text-med font-bold pl-2 pb-2">Password:</h3>
                     <input
+                        name="password"
                         type="password"
                         placeholder="password"
-                        className="w-[80%] max-w-[400px] h-16 pl-6 mb-12" type="password"
+                        className="w-[80%] max-w-[560px] h-16 pl-6 mb-12" type="password"
                     />
 
                     <input
                         type="submit"
                         value="Authenticate"
                         className="h-16 w-[160px] dark_button text-lg font-bold p-auto"
-                        href="/railway-finance-management"
                     />
                 </form>
             </div>
