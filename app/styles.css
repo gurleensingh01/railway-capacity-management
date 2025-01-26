@@ -118,7 +118,7 @@ input:not(:focus) {
 /******** backgrounds ********/
 
 
-.content_background {
+.content_background, #map {
     background-color: var(--main-color-dark);
     color: white;
     border-radius: 16px;
