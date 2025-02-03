@@ -1,14 +1,20 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";  // Import router to handle navigation
 import "../styles.css";
 
 export function Sidebar() {
-    // TODO: display username in footer
-
+    const router = useRouter();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    // Logout function to clear the auth cookie and redirect
+    const handleLogout = () => {
+        document.cookie = "authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear authentication cookie
+        router.replace("/"); // Redirect to the first page (welcome page)
     };
 
     return (
@@ -25,12 +31,11 @@ export function Sidebar() {
                 &raquo;
             </button>
 
-
             {/* Sidebar */}
             <div
                 className="menu fixed w-[330px] h-full flex flex-col p-[24px]"
                 style={{
-                    left: isSidebarOpen ? "0px": "-330px",
+                    left: isSidebarOpen ? "0px" : "-330px",
                     boxShadow: isSidebarOpen ? "" : "none",
                 }}
             >
@@ -51,14 +56,16 @@ export function Sidebar() {
                     </li>
                     <li>
                         <a className="menu_item light_button block py-3 px-4 mr-1" href="/stats">Statistics</a>
-                    </li> 
+                    </li>
                 </ul>
+
                 <div className="flex flex-row mb-0 mt-auto">
-                    <Link
+                    <button
+                        onClick={handleLogout} // Handle logout click
                         className="flex justify-around content-around dark_button w-24 h-12 pt-3 mr-0 ml-auto"
-                        href="/"
-                    >Log Out
-                    </Link>
+                    >
+                        Log Out
+                    </button>
                 </div>
             </div>
         </>
