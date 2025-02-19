@@ -1,25 +1,37 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-
+import { fetchShapeData } from "../_utils/fetchShapeData";
 import "../styles.css";
 
 export function Map() {
     const pathname = usePathname();
     const mapContainerRef = useRef();
     const mapRef = useRef();
+    const [coordinates, setCoordinates] = useState([]);
+    const [loading, setLoading] = useState(false); // Loading state for button fetch
+
     var isRouteOnExpandedPage = (pathname === "/map");
 
+    // Function to manually fetch and update data
+    const fetchLatestData = async () => {
+        setLoading(true); // Show loading state
+        const data = await fetchShapeData();
+        setCoordinates(data);
+        setLoading(false); // Hide loading state
+    };
+
     useEffect(() => {
+        if (coordinates.length === 0) return; // Wait until data is fetched
+
         mapboxgl.accessToken = "pk.eyJ1IjoiaGFveXUtZ3VvIiwiYSI6ImNtNmRhZDJqNzBxOHIybW9wdzNzdmY5a20ifQ.8wDFOeZgYyCp-7ggCDA6Fw";
         mapRef.current = new mapboxgl.Map({
-            container: 'map', // container ID
-            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-            style: 'mapbox://styles/mapbox/dark-v11', // style URL
-            center: [-73.9709, 40.6712], // starting position [lng, lat]
-            zoom: 15.773 // starting zoom
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: coordinates[0] || [-79.38032, 43.64481], // Default if empty
+            zoom: 5.0
         });
 
         const geojson = {
@@ -29,27 +41,8 @@ export function Map() {
                     type: 'Feature',
                     properties: {},
                     geometry: {
-                        coordinates: [
-                            [-73.97003, 40.67264],
-                            [-73.96985, 40.67235],
-                            [-73.96974, 40.67191],
-                            [-73.96972, 40.67175],
-                            [-73.96975, 40.67154],
-                            [-73.96987, 40.67134],
-                            [-73.97015, 40.67117],
-                            [-73.97045, 40.67098],
-                            [-73.97064, 40.67078],
-                            [-73.97091, 40.67038],
-                            [-73.97107, 40.67011],
-                            [-73.97121, 40.66994],
-                            [-73.97149, 40.66969],
-                            [-73.97169, 40.66985],
-                            [-73.97175, 40.66994],
-                            [-73.97191, 40.66998],
-                            [-73.97206, 40.66998],
-                            [-73.97228, 40.67008]
-                        ],
-                    type: 'LineString'
+                        type: 'LineString',
+                        coordinates: coordinates, // Use the latest fetched coordinates
                     }
                 }
             ]
@@ -119,7 +112,7 @@ export function Map() {
 
             animateDashArray(0);
         });
-    }, []);
+    }, [coordinates]); // Runs only when coordinates change
 
     return (
         <>
@@ -130,7 +123,14 @@ export function Map() {
                         <Link className="text-xs dark_button px-3 py-2 mb-1" href="/map" as="/map">Expand Map</Link>
                     </div>
                 }
-                <div className="content_background h-full w-full flex flex-col justify-center">
+                <div className="h-full w-full flex flex-col justify-center">
+                    <button
+                        onClick={fetchLatestData}
+                        className="px-4 py-2 dark_button mb-1 font-semibold shadow"
+                        disabled={loading}
+                    >
+                        {loading ? "Fetching Data..." : "Fetch Latest Data"}
+                    </button>
                     <div id="map" ref={mapContainerRef} className="h-full w-full"></div>
                 </div>
             </div>
