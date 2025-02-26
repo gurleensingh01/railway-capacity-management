@@ -1,29 +1,29 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 import { KPI } from "../components/kpi.js";
 import { Map } from "../components/map.js";
 import { Sidebar } from "../components/sidebar.js";
 import "../styles.css";
 
-export default function DashboardPage({ searchParams }) {
+export default function DashboardPage() {
     const router = useRouter();
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     useEffect(() => {
-        const userId = searchParams?.userId;
-        const userToken = searchParams?.userToken;
+        // Check if the auth token exists in cookies
+        const authToken = document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("authToken="))
+            ?.split("=")[1];
 
-        if (!userId || !userToken) {
-            router.replace("/"); // Redirect to sign-in if user is not authenticated
+        if (!authToken) {
+            router.replace("/"); // Redirect to sign-in if the user is not authenticated
         } else {
             setIsAuthenticated(true);
-            // TODO: Store authentication in a cookie or local storage for persistence
-            document.cookie = `authToken=${userToken}; path=/; max-age=3600`; // Expires in 1 hour
         }
-    }, [searchParams]);
+    }, [router]);
 
     if (!isAuthenticated) {
         return <p className="text-center text-lg font-bold">Redirecting to sign in...</p>;

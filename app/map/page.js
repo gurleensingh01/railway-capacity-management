@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Map } from "../components/map.js";
@@ -7,6 +8,25 @@ import "../styles.css";
 
 export default function Page() {
     const router = useRouter();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        // Retrieve authentication token from cookies
+        const authToken = document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("authToken="))
+            ?.split("=")[1];
+
+        if (!authToken) {
+            router.replace("/"); // Redirect to login if not authenticated
+        } else {
+            setIsAuthenticated(true);
+        }
+    }, []);
+
+    if (!isAuthenticated) {
+        return <p className="text-center text-lg font-bold">Redirecting to sign in...</p>;
+    }
 
     // TODO: dynamically load location
     var location = "Alberta";

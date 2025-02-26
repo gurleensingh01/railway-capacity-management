@@ -24,9 +24,13 @@ export default function Page() {
         }
 
         try {
-            const { userId, userToken } = await signIn(email, password);
-            if (userId) {
-                router.push(`/dashboard?userId=${userId}&userToken=${userToken}`);
+            const { userToken } = await signIn(email, password); // Assume signIn returns a userToken
+            if (userToken) {
+                // Store authentication token in cookies
+                document.cookie = `authToken=${userToken}; path=/; max-age=3600`; // Expires in 1 hour
+                
+                // Redirect to dashboard without query parameters
+                router.push("/dashboard");
             }
         } catch (error) {
             setError(error.message);
