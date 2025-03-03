@@ -2,7 +2,7 @@ import { usePathname } from "next/navigation";
 import { Gauge, gaugeClasses } from "@mui/x-charts/Gauge";
 import { PieChart } from "@mui/x-charts/PieChart";
 import { BarChart } from "@mui/x-charts/BarChart";
-import { useTrack } from "../context/TrackContext";
+import { useTrack } from "./context/TrackContext";
 import "../styles.css";
 
 export function KPI() {

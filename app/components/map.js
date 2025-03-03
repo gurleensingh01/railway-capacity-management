@@ -3,16 +3,16 @@ import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { fetchGTFSData } from "../_utils/fetchShapeData";
-import { useTrack } from "../context/TrackContext";
+import { fetchGTFSData } from "./utils/fetchShapeData";
+import { useTrack } from "./context/TrackContext";
 import "../styles.css";
 
 export function Map() {
     const pathname = usePathname();
     const mapContainerRef = useRef();
     const mapRef = useRef();
-    const [coordinates, setCoordinates] = useState([]);
-    const [shapeGroups, setShapeGroups] = useState([]);
+    const [shapes, setShapes] = useState({});
+    const [stops, setStops] = useState({});
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
 
@@ -21,126 +21,82 @@ export function Map() {
     const fetchLatestData = async () => {
         setLoading(true);
         const data = await fetchGTFSData();
-        setCoordinates(data.coordinates);
-        setShapeGroups(data.shapeGroups);
+        setShapes(data.shapes);
+        setStops(data.stops);
         setLoading(false);
     };
 
     useEffect(() => {
-        if (coordinates.length === 0) return;
+        if (shapes.length === 0) return;
 
         mapboxgl.accessToken = "pk.eyJ1IjoiaGFveXUtZ3VvIiwiYSI6ImNtNmRhZDJqNzBxOHIybW9wdzNzdmY5a20ifQ.8wDFOeZgYyCp-7ggCDA6Fw";
-        mapRef.current = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/dark-v11',
-            center: coordinates[0] || [-79.38032, 43.64481],
-            zoom: 5.0
+        const map = new mapboxgl.Map({
+            "container": "map",
+            "style": 'mapbox://styles/mapbox/dark-v11',
+            "center": [-79.38032, 43.64481], // TODO: find center
+            "zoom": 5.0
         });
 
-        mapRef.current.on('load', () => {
-            // ===================== Add Railway Line ===================== //
-            if (coordinates.length > 1) {
-                const geojson = {
-                    type: 'FeatureCollection',
-                    features: [
-                        {
-                            type: 'Feature',
-                            properties: {},
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: coordinates,
-                            }
+        map.on("load", () => {
+            // ===================== Add Railway Lines ===================== //
+            for (const [shape, coords] of Object.entries(shapes)) {
+                const lineName = "line_" + shape;
+                map.addSource(lineName, {
+                    "type": "geojson",
+                    "data": {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": coords
                         }
-                    ]
-                };
-
-                mapRef.current.addSource('line', {
-                    type: 'geojson',
-                    data: geojson
-                });
-
-                mapRef.current.addLayer({
-                    id: 'line-background',
-                    type: 'line',
-                    source: 'line',
-                    paint: {
-                        'line-color': 'yellow',
-                        'line-width': 6,
-                        'line-opacity': 0.4
                     }
                 });
-
-                mapRef.current.addLayer({
-                    id: 'line-dashed',
-                    type: 'line',
-                    source: 'line',
-                    paint: {
-                        'line-color': 'yellow',
-                        'line-width': 6,
-                        'line-dasharray': [0, 4, 3]
+                map.addLayer({
+                    "id": lineName,
+                    "type": "line",
+                    "source": lineName,
+                    "layout": {
+                        "line-join": "round",
+                        "line-cap": "round"
+                    },
+                    "paint": {
+                        "line-color": "#00f000",
+                        "line-width": 4
                     }
                 });
             }
 
-            // ===================== Add Shape Points (Stops) ===================== //
-            shapeGroups.forEach((group) => {
-                mapRef.current.addSource(`shape-${group.shape_id}`, {
-                    type: "geojson",
-                    data: {
-                        type: "FeatureCollection",
-                        features: group.coordinates.map(coord => ({
-                            type: "Feature",
-                            geometry: { type: "Point", coordinates: coord },
-                            properties: { shape_id: group.shape_id }
-                        }))
+            // ===================== Add Railway Stops ===================== //
+            for (const [stop, coords] of Object.entries(stops)) {
+                map.addSource(stop, {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'FeatureCollection',
+                        'features': [
+                            {
+                                'type': 'Feature',
+                                'geometry': {
+                                    'type': 'Point',
+                                    'coordinates': coords
+                                }
+                            }
+                        ]
                     }
                 });
 
-                mapRef.current.addLayer({
-                    id: `shape-points-${group.shape_id}`,
-                    type: "circle",
-                    source: `shape-${group.shape_id}`,
-                    paint: {
-                        "circle-radius": 5,
-                        "circle-color": "#00ff00",
-                        "circle-stroke-width": 1,
-                        "circle-stroke-color": "#fff"
+                map.addLayer({
+                    'id': stop,
+                    'type': 'circle',
+                    'source': stop,
+                    'paint': {
+                        'circle-radius': 4,
+                        'circle-color': '#f0f0f0'
                     }
                 });
-
-                // ===================== Click Event for Shape Points ===================== //
-                mapRef.current.on("click", `shape-points-${group.shape_id}`, (e) => {
-                    const shapeId = e.features[0].properties.shape_id;
-                    console.log(`Clicked on Shape ID: ${shapeId}`);
-                    setSelectedTrack(shapeId); // Send selected track to KPI component
-
-                    // Temporarily highlight the clicked point
-                    mapRef.current.setPaintProperty(
-                        `shape-points-${shapeId}`,
-                        "circle-color",
-                        "#ff0000"
-                    );
-
-                    setTimeout(() => {
-                        mapRef.current.setPaintProperty(
-                            `shape-points-${shapeId}`,
-                            "circle-color",
-                            "#00ff00"
-                        );
-                    }, 500);
-                });
-
-                // Change cursor to pointer on hover
-                mapRef.current.on("mouseenter", `shape-points-${group.shape_id}`, () => {
-                    mapRef.current.getCanvas().style.cursor = "pointer";
-                });
-
-                mapRef.current.on("mouseleave", `shape-points-${group.shape_id}`, () => {
-                    mapRef.current.getCanvas().style.cursor = "";
-                });
-            });
+            }
         });
-    }, [coordinates, shapeGroups]);
+    }, [shapes]);
 
     return (
         <div className="h-full w-full flex-auto flex flex-col justify-center text-center">

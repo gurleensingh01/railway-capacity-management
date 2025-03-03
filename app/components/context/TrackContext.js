@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
-import { fetchGTFSData } from "../_utils/fetchShapeData"; // Import function to fetch GTFS data
+import { fetchGTFSData } from "../utils/fetchShapeData"; // Import function to fetch GTFS data
 
 const TrackContext = createContext();
 

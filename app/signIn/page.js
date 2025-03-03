@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signIn } from "../_utils/auth-context"; // Ensure signIn is properly implemented
+import { signIn } from "../components/utils/auth-context"; // Ensure signIn is properly implemented
 import "../styles.css";
 
 export default function Page() {

@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
-import { signUp } from "../_utils/auth-context";
+import { signUp } from "../components/utils/auth-context";
 import "../styles.css";
 
 export default function Page() {
