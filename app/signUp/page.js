@@ -56,50 +56,38 @@ export default function Page() {
     };
 
     return (
-        <div className="h-full w-full flex flex-col m-auto justify-center">
-            <div className="m-12">
-                <div className="mb-12">
-                    <h1 className="text-6xl font-bold">Welcome</h1>
-                    <h2 className="text-lg font-bold">Please sign up to continue.</h2>
+        <div className="ext_main_container">
+            <div className="mb-16">
+                <h1 className="ext_title">Create an Account</h1>
+                <h2 className="ext_subtitle">Please fill in the form to continue</h2>
+            </div>
+
+            {error && <p className="text-red-800 mb-4">{error}</p>}
+            {success && <p style={{ color: "#223B34" }} className="mb-4">{success}</p>}
+
+            <form onSubmit={onSubmit} className="flex flex-col">
+                <h3 className="pl-2 pb-2 ext_label">E-mail</h3>
+                <input className="w-[80%] max-w-[560px] h-[64px] pt-4 pr-0 pb-4 pl-6 mb-8" ref={emailRef} type="email" placeholder="e-mail" autoFocus/>
+
+                <h3 className="pl-2 pb-2 ext_label">Password</h3>
+                <input className="w-[80%] max-w-[560px] h-[64px] pt-4 pr-0 pb-4 pl-6 mb-8" ref={passwordRef} type="password" placeholder="password"/>
+
+                <h3 className="pl-2 pb-2 ext_label">Confirm Password</h3>
+                <input className="w-[80%] max-w-[560px] h-[64px] pt-4 pr-0 pb-4 pl-6 mb-16" ref={confirmPasswordRef} type="password" placeholder="confirm password"/>
+                <div>
+                    <button type="submit" className="w-[80%] max-w-[560px] h-[64px] pv-4 ph-24 dark_button" disabled={loading}>
+                        {loading ? "Creating Account..." : "Register"}
+                    </button>
                 </div>
 
-                {error && <p className="text-red-800 mb-4">{error}</p>}
-                {success && <p style={{ color: "#223B34" }} className="mb-4">{success}</p>}
-
-                <form onSubmit={onSubmit} className="flex flex-col">
-                    <InputField label="E-mail:" type="email" ref={emailRef} autoFocus />
-                    <InputField label="Password:" type="password" ref={passwordRef} />
-                    <InputField label="Confirm Password:" type="password" ref={confirmPasswordRef} />
-
-                    <button
-                        type="submit"
-                        className="h-16 w-[160px] dark_button text-lg font-bold"
-                        disabled={loading}
-                    >
-                        {loading ? "Creating..." : "Create Account"}
-                    </button>
-
-                    {loading && (
-                        <div className="flex justify-center mt-4">
-                            <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
-                        </div>
-                    )}
-                </form>
-            </div>
+                {loading && (
+                    <div className="flex justify-center mt-4">
+                        <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
+                    </div>
+                )}
+            </form>
+            <button onClick={() => router.push("/signIn")} className="mt-14 w-[80%] max-w-[560px] h-[64px] dark_button_without_background">I Have an Account</button>
         </div>
     );
 }
 
-// Reusable InputField component
-const InputField = ({ label, type, ref, autoFocus }) => (
-    <div className="mb-4">
-        <h3 className="text-med font-bold pl-2 pb-2">{label}</h3>
-        <input
-            ref={ref}
-            type={type}
-            placeholder={label.toLowerCase()}
-            className="w-[80%] max-w-[560px] h-16 pl-6"
-            autoFocus={autoFocus}
-        />
-    </div>
-);

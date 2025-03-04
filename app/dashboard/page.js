@@ -29,30 +29,26 @@ export default function DashboardPage() {
         return <p className="text-center text-lg font-bold">Redirecting to sign in...</p>;
     }
 
-    // TODO: dynamically load names
-    const username = "Bob";
     // TODO: dynamically load greeting
     const greeting = "evening";
     // TODO: dynamically load location
     const location = "Alberta";
 
     return (
-        <div className="h-full w-full flex flex-col">
+        <div className="int_main_container">
             <Sidebar />
-
             {/* Main Content */}
             <div className="flex flex-col h-full w-full justify-stretch p-4">
-                <div className="p-4 pb-0 mb-0">
-                    <h1 className="text-4xl font-bold">Good {greeting}, {username}!</h1>
-                    <h2 className="text-base font-bold pb-8">Here is your overview for {location}.</h2>
+                <div className="p-4 pt-1 mb-4 mt-0">
+                    <h1 className="int_title">Good {greeting}!</h1>
+                    <h2 className="int_subtitle">Here is your overview for {location}.</h2>
                 </div>
 
-                {/* TODO: use actual data */}
                 <div className="flex flex-col h-full w-full">
-                    <div className="h-40 flex-auto flex flex-col justify-center text-center">
+                    <div className="h-40 flex-auto">
                         <Map />
                     </div>
-                    <div className="h-10 flex-auto mt-2 flex flex-row justify-stretch">
+                    <div className="h-10 flex-auto mt-6">
                         <KPI />
                     </div>
                 </div>
