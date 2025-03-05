@@ -70,7 +70,6 @@ html, body {
     color: var(--main-color-dark);
     overflow: scroll;
     border-radius: 16px;
-    z-index: 99;
     width: 320px;
 }
 

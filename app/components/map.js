@@ -11,23 +11,30 @@ export function Map() {
     const pathname = usePathname();
     const mapContainerRef = useRef();
     const mapRef = useRef();
-    const [shapes, setShapes] = useState({});
-    const [stops, setStops] = useState({});
+    const [trains, setTrains] = useState([]);
+    const [stops, setStops] = useState([]);
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
-
+    const routePrefix = "route_";
+    const stopPrefix = "stop_";
     var isRouteOnExpandedPage = (pathname === "/map");
+    var d = new Date();
+    var yyyy = String(d.getFullYear());
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    var yyyymmdd = Number(yyyy + mm + dd);
+    var day = d.getDay();
 
     const fetchLatestData = async () => {
         setLoading(true);
         const data = await fetchGTFSData();
-        setShapes(data.shapes);
+        setTrains(data.trains);
         setStops(data.stops);
         setLoading(false);
     };
 
     useEffect(() => {
-        if (shapes.length === 0) return;
+        if (trains.length === 0) return;
 
         mapboxgl.accessToken = "pk.eyJ1IjoiaGFveXUtZ3VvIiwiYSI6ImNtNmRhZDJqNzBxOHIybW9wdzNzdmY5a20ifQ.8wDFOeZgYyCp-7ggCDA6Fw";
         const map = new mapboxgl.Map({
@@ -55,8 +62,35 @@ export function Map() {
 
         map.on("load", () => {
             // ===================== Add Railway Lines ===================== //
-            for (const [shape, coords] of Object.entries(shapes)) {
-                const shapeName = "shape_" + shape;
+            for (let i = 0; i < trains.length; i++) {
+                const train = trains[i];
+                const trainId = train["id"];
+                const trainCoordinates = train["coordinates"];
+                const trainStartDate = train["startDate"];
+                const trainEndDate = train["endDate"];
+                const trainDaysOfOperation = train["daysOfOperation"];
+
+                // check train start/end dates
+                if (trainStartDate && trainEndDate) {
+                    if (trainStartDate > yyyymmdd || trainEndDate < yyyymmdd) {
+                        console.log("Skipping train " + trainId + ": outside start/end date");
+                        continue;
+                    }
+                } else {
+                    console.log("Train " + trainId + ": no start/end date - showing anyways");
+                }
+
+                // check train days of operation
+                if (trainDaysOfOperation) {
+                    if (!trainDaysOfOperation[day]) {
+                        console.log("Skipping train " + trainId + ": does not run on day " + day);
+                        continue
+                    }
+                } else {
+                    console.log("Train " + trainId + ": no days of operation - showing anyways");
+                }
+
+                const shapeName = routePrefix + trainId;
                 renderableRoutes.push(shapeName);
                 map.addSource(shapeName, {
                     "type": "geojson",
@@ -65,7 +99,7 @@ export function Map() {
                         "properties": {},
                         "geometry": {
                             "type": "LineString",
-                            "coordinates": coords
+                            "coordinates": trainCoordinates
                         }
                     }
                 });
@@ -98,8 +132,11 @@ export function Map() {
             }
 
             // ===================== Add Railway Stops ===================== //
-            for (const [stop, coords] of Object.entries(stops)) {
-                const stopName = "stop_" + stop;
+            for (let i = 0; i < stops.length; i++) {
+                const stop = stops[i];
+                const stopId = stop["id"];
+                const stopCoordinates = stop["coordinates"];
+                const stopName = stopPrefix + stopId;
                 renderableStops.push(stopName);
                 map.addSource(stopName, {
                     'type': 'geojson',
@@ -110,7 +147,7 @@ export function Map() {
                                 'type': 'Feature',
                                 'geometry': {
                                     'type': 'Point',
-                                    'coordinates': coords
+                                    'coordinates': stopCoordinates
                                 }
                             }
                         ]
@@ -186,6 +223,32 @@ export function Map() {
                         this.className = 'map_menu_item_active';
                         // set clickedLayer visibility to visible
                         map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+                        // get all coordinates of this train
+                        //const coordinates = trainShapes[clickedLayer.replace(routePrefix, "")];
+                        //console.log("###### Looking for " + coordinates);
+                        //let matchedTrains = [];
+                        // TODO: instead of working on coordinates, use trains and skip the train when added
+                        //for (let i = 0; i < coordinates.length; i++) {
+                        //    const routeCoordinate = coordinates[i];
+                        //    for (var trainCoordinate in trainCoords) {
+                        //        if (trainCoordinate == routeCoordinate) {
+                        //            const trains = trainCoords[trainCoordinate];
+                        //            for (let j = 0; j < trains.length; j++) {
+                        //                const train = trains[j];
+                        //                if (!(matchedTrains.includes(train))) {
+                        //                    matchedTrains.unshift(train);
+                        //                    const trainMenu = document.getElementById('trains_menu');
+                        //                    const trainListItem = document.createElement('li');
+                        //                    const trainItem = document.createElement('p');
+                        //                    trainItem.textContent = train;
+                        //                    trainListItem.appendChild(trainItem);
+                        //                    trainMenu.appendChild(trainListItem);
+                        //                }
+                        //            }
+                        //        }
+                        //    }
+                        //}
+                        console.log("Done matching");
                     }
                 };
 
@@ -226,13 +289,13 @@ export function Map() {
                 menu.appendChild(listItem);
             }
         });
-    }, [shapes]);
+    }, [trains, stops]);
 
     return (
         <div className="h-full w-full flex-auto flex flex-col justify-center text-center">
             {!isRouteOnExpandedPage &&
                 <div className="w-full flex flex-row justify-between text-center">
-                    <h1 className="int_label">Railway Map</h1>
+                    <h3 className="int_label">Railway Map</h3>
                     <Link className="dark_button_mini pl-2 pr-2 pt-1 pb-1 mb-1" href="/map">Expand Map</Link>
                 </div>
             }
@@ -243,7 +306,7 @@ export function Map() {
                 <div id="stopProperties"><p>Select a stop</p></div>
                 <div id="routeProperties"><p>Select a route</p></div>
                 <div className="map_section">
-                    <div id="map" ref={mapContainerRef} className="h-full w-80 flex-auto"></div>
+                    <div id="map" ref={mapContainerRef} className="w-80 flex-auto"></div>
                     <div className="map_menu">
                         <div>
                             <h2 className="map_menu_title">Routes</h2>
@@ -252,6 +315,10 @@ export function Map() {
                         <div>
                             <h2 className="map_menu_title">Stops</h2>
                             <ul id="stops_menu" className="list-disc"></ul>
+                        </div>
+                        <div>
+                            <h2 className="map_menu_title">On Route</h2>
+                            <ul id="trains_menu" className="list-disc"></ul>
                         </div>
                     </div>
                 </div>
