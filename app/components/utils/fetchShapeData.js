@@ -46,81 +46,136 @@ export async function fetchGTFSData() {
 
         // ====================== returned objects ====================== //
 
-        // trains structure (array of dictionaries):
+        // trains structure (dictionary):
         // {
-        //      id:                 String      ->      id of the train/route/service
-        //      coordinates:        Array       ->      an array of route coordinates [[lon,lat], [lon,lat], ...]
-        //      startDate:          Number      ->      date of start service
-        //      endDate:            Number      ->      date of end service
-        //      daysOfOperation     Array       ->      days this train will run on (key is type Number)
-        //          0               Boolean     ->      sunday
-        //          1               Boolean     ->      monday
-        //          2               Boolean
-        //          3               Boolean
-        //          4               Boolean
-        //          5               Boolean
-        //          6               Boolean     ->      saturday
+        //      "trainId": {
+        //          allCoordinates:         Array       ->      an array of all coordinates (for rendering)
+        //          distanceCoordinates:    Array       ->      an array of distances along the route with their coordinates
+        //              [
+        //                  {"distance": [lon,lat]}
+        //                  {"distance": [lon,lat]}
+        //              ]
+        //          startDate:              Date        ->      date of start service
+        //          endDate:                Date        ->      date of end service
+        //          daysOfOperation         Array       ->      days this train will run on (key is type Number)
+        //              0                   Boolean     ->      sunday
+        //              1                   Boolean     ->      monday
+        //              2                   Boolean
+        //              3                   Boolean
+        //              4                   Boolean
+        //              5                   Boolean
+        //              6                   Boolean     ->      saturday
+        //      },
+        //      ...
         // }
-        let trains = [];
+        let trains = {};
 
 
-        // stops structure (array of dictionaries):
+        // stops structure (dictionary):
         // {
-        //      id:                 String      ->      id of the stop
-        //      coordinates:        Array       ->      the stop coordinates [lon,lat]
+        //      "id": {
+        //          coordinates:            Array       ->      the stop coordinates [lon,lat]
+        //      },
+        //      ...
         // }
-        let stops = [];
+        let stops = {};
 
 
-        let trips = {};
+        // stopTimes structure (dictionary):
+        // {
+        //      "tripId": {
+        //          0: {
+        //              arrivalTime:        Date        ->      time of arrival
+        //              departureTime:      Date        ->      time of departure
+        //              stopId:             String      ->      id of this stop
+        //              distance:           Float       ->      distance along the route
+        //          }
+        //          1: {},
+        //          2: {},
+        //          ...
+        //      }
+        //      ...
+        // }
+        let stopTimes = {};
 
 
         // ====================== Process stops.txt ====================== //
         for (let i = 1; i < stopsLines.length; i++) {
             const values = stopsLines[i].split(",");
             if (values.length === 9) {
-                let stop = {};
-                stop["id"] = values[0];
-                stop["coordinates"] = [values[4], values[5]];
-                stops.unshift(stop);
+                stops[values[0]] = {
+                    "coordinates": [values[4], values[5]]
+                };
             }
         }
 
 
         // ====================== Process Shapes.txt ====================== //
+        let currentTrainId = "";
         let currentTrain = {};
         for (let i = 1; i < shapeLines.length; i++) {
             const values = shapeLines[i].split(",");
             if (values.length === 5) {
                 const trainId = values[0];
                 const coordinates = [parseFloat(values[2]), parseFloat(values[1])];
-                if (!currentTrain.hasOwnProperty("id") || currentTrain["id"] !== trainId) {
-                    if (currentTrain["id"] && currentTrain["id"] != trainId) {
+                const distance = (!values[4] || values[4].length === 0) ? "0.0" : values[4].trim();
+                if (currentTrainId.length == 0 || currentTrainId !== trainId) {
+                    if (currentTrainId.length > 0 && currentTrainId !== trainId) {
                         // different current train id
                         // add current train, then make a new train
-                        trains.unshift(currentTrain);
+                        trains[currentTrainId] = currentTrain;
+                        currentTrainId = "";
                         currentTrain = {};
                     }
-                    currentTrain["id"] = trainId;
-                    currentTrain["coordinates"] = [coordinates];
+                    currentTrainId = trainId;
+                    let data = {};
+                    data[distance] = coordinates;
+                    currentTrain["distanceCoordinates"] = [data];
+                    currentTrain["allCoordinates"] = [coordinates];
                 } else {
                     // continue adding coordinates to the current train
-                    currentTrain["coordinates"].unshift(coordinates);
+                    let data = {};
+                    data[distance] = coordinates;
+                    currentTrain["distanceCoordinates"].push(data);
+                    currentTrain["allCoordinates"].push(coordinates);
                 }
             }
         }
 
+        // add the last train after iteration completion
+        trains[currentTrainId] = currentTrain;
+        currentTrainId = "";
+        currentTrain = {};
+
 
         // ====================== Process Stop_times.txt ====================== //
+        let currentTripId = "";
+        let currentIter = 0;
         for (let i = 1; i < stopTimesLines.length; i++) {
             const values = stopTimesLines[i].split(",");
-            if (values.length >= 1) {
-                const trip_id = values[0].trim();
-                if (trip_id in trips) {
-                    trips[trip_id] = trips[trip_id] + 1;
-                } else {
-                    trips[trip_id] = 1;
+            if (values.length === 11) {
+                const tripId = values[0];
+                const arrive = values[1].split(":");
+                const depart = values[2].split(":");
+                var arrivalTime = new Date();
+                arrivalTime.setHours(Number(arrive[0]), Number(arrive[1]), Number(arrive[2]), 0);
+                var departureTime = new Date();
+                departureTime.setHours(Number(depart[0]), Number(depart[1]), Number(depart[2]), 0);
+                const stopId = values[3];
+                const distance = (!values[8] || values[8].length === 0) ? "0.0" : values[8].trim();
+                if (currentTripId.length == 0 || currentTripId !== tripId) {
+                    currentTripId = tripId;
+                    currentIter = 0;
+                    stopTimes[currentTripId] = {};
+                    stopTimes[currentTripId][currentIter] = {};
                 }
+                stopTimes[currentTripId][currentIter] = {
+                    "arrivalTime": arrivalTime,
+                    "departureTime": departureTime,
+                    "stopId": stopId,
+                    "distance": distance
+                };
+                currentIter += 1;
             }
         }
 
@@ -130,21 +185,30 @@ export async function fetchGTFSData() {
             const values = calendarLines[i].split(",");
             if (values.length === 10) {
                 const trainId = values[0].trim();
-                for (let j = 0; j < trains.length; j++) {
-                    if (trains[j]["id"] && trains[j]["id"] === trainId) {
-                        trains[j]["startDate"] = Number(values[1]);
-                        trains[j]["endDate"] = Number(values[2]);
-                        let days = {};
-                        days[0] = (values[9] == 1);   // sunday
-                        days[1] = (values[3] == 1);   // monday
-                        days[2] = (values[4] == 1);
-                        days[3] = (values[5] == 1);
-                        days[4] = (values[6] == 1);
-                        days[5] = (values[7] == 1);
-                        days[6] = (values[8] == 1);   // saturday
-                        trains[j]["daysOfOperation"] = days;
-                    }
-                }
+                var startDate = new Date(
+                    Number(values[1].substring(0,4)),
+                    Number(values[1].substring(4,6)) - 1,
+                    Number(values[1].substring(6))
+                );
+                startDate.setHours(0, 0, 0, 0);
+                trains[trainId]["startDate"] = startDate;
+                var endDate = new Date(
+                    Number(values[2].substring(0,4)),
+                    Number(values[2].substring(4,6)) - 1,
+                    Number(values[2].substring(6))
+                );
+                endDate.setHours(0, 0, 0, 0);
+                trains[trainId]["endDate"] = endDate;
+                const days = {
+                    0: (values[9] == 1),   // sunday
+                    1: (values[3] == 1),
+                    2: (values[4] == 1),
+                    3: (values[5] == 1),
+                    4: (values[6] == 1),
+                    5: (values[7] == 1),
+                    6: (values[8] == 1)    // saturday
+                };
+                trains[trainId]["daysOfOperation"] = days;
             }
         }
 
@@ -152,14 +216,14 @@ export async function fetchGTFSData() {
         return { 
             trains,
             stops,
-            trips
+            stopTimes
         };
     } catch (error) {
         console.error("Error fetching GTFS data:", error);
         return {
-            "trains": [],
-            "stops": [],
-            "trips": {}
+            "trains": {},
+            "stops": {},
+            "stopTimes": {}
         };
     }
 }

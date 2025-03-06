@@ -13,28 +13,29 @@ export function Map() {
     const mapRef = useRef();
     const [trains, setTrains] = useState([]);
     const [stops, setStops] = useState([]);
+    const [stopTimes, setStopTimes] = useState([]);
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
-    const routePrefix = "route_";
-    const stopPrefix = "stop_";
+    const routePrefix = "route_"; // for route names
+    const stopPrefix = "stop_"; // for stop names
+    const trainPrefix = "train_"; // for train names
     var isRouteOnExpandedPage = (pathname === "/map");
-    var d = new Date();
-    var yyyy = String(d.getFullYear());
-    var mm = String(d.getMonth() + 1).padStart(2, '0');
-    var dd = String(d.getDate()).padStart(2, '0');
-    var yyyymmdd = Number(yyyy + mm + dd);
-    var day = d.getDay();
+    var today = new Date();
+    var day = today.getDay();
 
     const fetchLatestData = async () => {
         setLoading(true);
         const data = await fetchGTFSData();
         setTrains(data.trains);
         setStops(data.stops);
+        setStopTimes(data.stopTimes);
         setLoading(false);
     };
 
     useEffect(() => {
         if (trains.length === 0) return;
+        if (stops.length === 0) return;
+        if (stopTimes.length === 0) return;
 
         mapboxgl.accessToken = "pk.eyJ1IjoiaGFveXUtZ3VvIiwiYSI6ImNtNmRhZDJqNzBxOHIybW9wdzNzdmY5a20ifQ.8wDFOeZgYyCp-7ggCDA6Fw";
         const map = new mapboxgl.Map({
@@ -62,34 +63,32 @@ export function Map() {
 
         map.on("load", () => {
             // ===================== Add Railway Lines ===================== //
-            for (let i = 0; i < trains.length; i++) {
-                const train = trains[i];
-                const trainId = train["id"];
-                const trainCoordinates = train["coordinates"];
-                const trainStartDate = train["startDate"];
-                const trainEndDate = train["endDate"];
-                const trainDaysOfOperation = train["daysOfOperation"];
+            for (var trainId in trains) {
+                const trainAllCoordinates = trains[trainId]["allCoordinates"];
+                const trainStartDate = trains[trainId]["startDate"];
+                const trainEndDate = trains[trainId]["endDate"];
+                const trainDaysOfOperation = trains[trainId]["daysOfOperation"];
 
-                // check train start/end dates
-                if (trainStartDate && trainEndDate) {
-                    if (trainStartDate > yyyymmdd || trainEndDate < yyyymmdd) {
-                        console.log("Skipping train " + trainId + ": outside start/end date");
-                        continue;
-                    }
-                } else {
-                    console.log("Train " + trainId + ": no start/end date - showing anyways");
+                // ===== Check renderability ===== //
+                // start/end dates
+                if (trainStartDate && trainStartDate > today) {
+                    console.log("[INFO]: Skipping train " + trainId + " because the start date is not met");
+                    continue;
+                }
+                if (trainEndDate && trainEndDate < today) {
+                    console.log("[INFO]: Skipping train " + trainId + " because the end date has been met");
+                    continue;
                 }
 
-                // check train days of operation
-                if (trainDaysOfOperation) {
-                    if (!trainDaysOfOperation[day]) {
-                        console.log("Skipping train " + trainId + ": does not run on day " + day);
-                        continue
-                    }
-                } else {
-                    console.log("Train " + trainId + ": no days of operation - showing anyways");
+                // days of operation
+                if (trainDaysOfOperation && !trainDaysOfOperation[day]) {
+                    console.log("[INFO]: Skipping train " + trainId + " because it does not run today");
+                    continue;
                 }
 
+
+                // ===== This route can be rendered after this point ===== //
+                
                 const shapeName = routePrefix + trainId;
                 renderableRoutes.push(shapeName);
                 map.addSource(shapeName, {
@@ -99,7 +98,7 @@ export function Map() {
                         "properties": {},
                         "geometry": {
                             "type": "LineString",
-                            "coordinates": trainCoordinates
+                            "coordinates": trainAllCoordinates
                         }
                     }
                 });
@@ -108,7 +107,7 @@ export function Map() {
                     "type": "line",
                     "source": shapeName,
                     "layout": {
-                        'visibility': 'none',
+                        'visibility': 'visible',
                         "line-join": "round",
                         "line-cap": "round"
                     },
@@ -129,13 +128,122 @@ export function Map() {
                         setRoutePropertiesText(shapeName);
                     }
                 });
+                
+                // ===== Estimate train location ===== //
+                // using stop times (iterate):
+                // *** L1
+                for (var tripId in stopTimes) {
+                    if (tripId !== trainId) continue;
+                //  - check departure time of this stop compared to current time:
+                    const stopData = stopTimes[tripId];
+                    // *** L2
+                    for (let i = 0; i < Object.keys(stopData).length; i++) {
+                //      - if current time is less than or equal to the departure time
+                        const departTime = stopData[i]["departureTime"];
+                        const currentHours = today.getHours();
+                        const currentMinutes = today.getMinutes();
+                        const currentCombined = (currentHours * 60) + currentMinutes;
+                        const departHours = departTime.getHours();
+                        const departMinutes = departTime.getMinutes();
+                        const departCombined = (departHours * 60) + departMinutes;
+                        if (currentCombined <= departCombined) {
+                //          - then we know the train is here, or enroute to here
+                //          - check arrival time
+                            const arriveTime = stopData[i]["arrivalTime"];
+                            const arriveHours = arriveTime.getHours();
+                            const arriveMinutes = arriveTime.getMinutes();
+                            const arriveCombined = (arriveHours * 60) + arriveMinutes;
+                            let trainCoordinates = [0, 0];
+                //          - if current time is more than arrival time
+                            if (currentCombined >= arriveCombined || i === 0) {
+                //              - then the train is at this stop
+                //              // set trainCoordinates
+                                const stopId = stopData[i]["stopId"];
+                                // *** L3
+                                for (var id in stops) {
+                                    if (id !== stopId) continue;
+                                    const stopIdCoordinates = stops[id]["coordinates"];
+                                    trainCoordinates = stopIdCoordinates;
+                                    break; // L3
+                                }
+                //              // TODO: highlight this section of track to become red
+                //          - else
+                            } else {
+                //              - then the train is enroute to this stop
+                //              // calculate average train velocity
+                //              // (this stop's distance - last stop's distance) / (this stop's arrival time - last stop's departure time)
+                                const currentDistance = parseFloat(stopData[i]["distance"]);
+                                const lastDistance = parseFloat(stopData[i - 1]["distance"]);
+                                const lastArriveTime = stopData[i - 1]["arrivalTime"];
+                                const lastHours = lastArriveTime.getHours();
+                                const lastMinutes = lastArriveTime.getMinutes();
+                                const lastCombined = (lastHours * 60) + lastMinutes;
+                //              // velocity (meters/minute) * time = approximate train location
+                                const approxVelocity = (currentDistance - lastDistance) / (arriveCombined - lastCombined);
+                                const approxDistance = (approxVelocity * (currentCombined - lastCombined)) + lastDistance;
+                //              // find closest renderable location
+                                const trainDistanceCoordinates = trains[trainId]["distanceCoordinates"];
+                                const keys = Object.keys(trainDistanceCoordinates);
+                                // *** L4
+                                for (let j = 0; j < keys.length; j++) {
+                                    const distance = Object.keys(keys[i])[0];
+                                    if (distance <= approxDistance) {
+                                        trainCoordinates = trainDistanceCoordinates[distance];
+                                    } else {
+                                        break; // L4
+                                    }
+                                }
+                //              // TODO: highlight this section of track to become red
+                            }
+                            // draw train dot at this approximate location
+                            if (trainCoordinates[0] === 0 && trainCoordinates[1] === 0) {
+                                console.log("[ERROR]: Could not locate train: " + trainId);
+                            } else {
+                                const trainName = trainPrefix + trainId;
+                                map.addSource(trainName, {
+                                    'type': 'geojson',
+                                    'data': {
+                                        'type': 'FeatureCollection',
+                                        'features': [
+                                            {
+                                                'type': 'Feature',
+                                                'geometry': {
+                                                    'type': 'Point',
+                                                    'coordinates': trainCoordinates
+                                                }
+                                            }
+                                        ]
+                                    }
+                                });
+
+                                map.addLayer({
+                                    'id': trainName,
+                                    'type': 'circle',
+                                    'source': trainName,
+                                    'layout': {
+                                        'visibility': 'visible'
+                                    },
+                                    'paint': {
+                                        'circle-radius': 6,
+                                        'circle-color': '#f0f000'
+                                    }
+                                });
+                            }
+                            break; // L2
+                //      - else (current time > departure time)
+                        } else {
+                //          - the train left this stop, continue loop
+                            continue; // L2
+                        }
+                    }
+                    // already found the track, break loop
+                    break; // L1
+                }
             }
 
             // ===================== Add Railway Stops ===================== //
-            for (let i = 0; i < stops.length; i++) {
-                const stop = stops[i];
-                const stopId = stop["id"];
-                const stopCoordinates = stop["coordinates"];
+            for (var stopId in stops) {
+                const stopCoordinates = stops[stopId]["coordinates"];
                 const stopName = stopPrefix + stopId;
                 renderableStops.push(stopName);
                 map.addSource(stopName, {
@@ -207,7 +315,7 @@ export function Map() {
                 link.id = id;
                 link.href = '#';
                 link.textContent = id;
-                link.className = 'map_menu_item_inactive';
+                link.className = 'map_menu_item_active';
 
                 link.onclick = function (e) {
                     const clickedLayer = this.textContent;
@@ -223,32 +331,6 @@ export function Map() {
                         this.className = 'map_menu_item_active';
                         // set clickedLayer visibility to visible
                         map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
-                        // get all coordinates of this train
-                        //const coordinates = trainShapes[clickedLayer.replace(routePrefix, "")];
-                        //console.log("###### Looking for " + coordinates);
-                        //let matchedTrains = [];
-                        // TODO: instead of working on coordinates, use trains and skip the train when added
-                        //for (let i = 0; i < coordinates.length; i++) {
-                        //    const routeCoordinate = coordinates[i];
-                        //    for (var trainCoordinate in trainCoords) {
-                        //        if (trainCoordinate == routeCoordinate) {
-                        //            const trains = trainCoords[trainCoordinate];
-                        //            for (let j = 0; j < trains.length; j++) {
-                        //                const train = trains[j];
-                        //                if (!(matchedTrains.includes(train))) {
-                        //                    matchedTrains.unshift(train);
-                        //                    const trainMenu = document.getElementById('trains_menu');
-                        //                    const trainListItem = document.createElement('li');
-                        //                    const trainItem = document.createElement('p');
-                        //                    trainItem.textContent = train;
-                        //                    trainListItem.appendChild(trainItem);
-                        //                    trainMenu.appendChild(trainListItem);
-                        //                }
-                        //            }
-                        //        }
-                        //    }
-                        //}
-                        console.log("Done matching");
                     }
                 };
 
