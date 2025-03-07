@@ -14,6 +14,8 @@ export function Map() {
     const [trains, setTrains] = useState([]);
     const [stops, setStops] = useState([]);
     const [stopTimes, setStopTimes] = useState([]);
+    const [lastZoom, setLastZoom] = useState(0.0);
+    const [lastCenter, setLastCenter] = useState(null);
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
     const routePrefix = "route_"; // for route names
@@ -21,6 +23,9 @@ export function Map() {
     const trainPrefix = "train_"; // for train names
     var isRouteOnExpandedPage = (pathname === "/map");
     var today = new Date();
+    //var today = new Date("2025-03-06");
+    //today.setHours(16);
+    //today.setMinutes(40);
     var day = today.getDay();
 
     const fetchLatestData = async () => {
@@ -29,6 +34,8 @@ export function Map() {
         setTrains(data.trains);
         setStops(data.stops);
         setStopTimes(data.stopTimes);
+        if (lastZoom === 0.0) setLastZoom(7.5);
+        if (!lastCenter) setLastCenter([-79.38032, 43.64481]); // TODO: automatically find center
         setLoading(false);
     };
 
@@ -41,8 +48,40 @@ export function Map() {
         const map = new mapboxgl.Map({
             "container": "map",
             "style": 'mapbox://styles/mapbox/dark-v11',
-            "center": [-79.38032, 43.64481], // TODO: find center
-            "zoom": 5.0
+            "center": lastCenter,
+            "zoom": lastZoom
+        });
+
+
+        let selectedStop = null;
+        let selectedRoute = null;
+        map.addInteraction('map-click', {
+            type: 'click',
+            handler: () => {
+                // clear selected stop
+                if (selectedStop) {
+                    map.setFeatureState(selectedStop, { selected: false });
+                    selectedStop = null;
+                }
+                // clear selected route
+                if (selectedRoute) {
+                    map.setFeatureState(selectedRoute, { selected: false });
+                    selectedRoute = null;
+                }
+                // update current zoom / center
+                setLastZoom(map.getZoom());
+                setLastCenter(map.getCenter());
+            }
+        });
+        
+        map.on('moveend', () => {
+            // update current center
+            setLastCenter(map.getCenter());
+        });
+
+        map.on('zoomend', () => {
+            // update current zoom
+            setLastZoom(map.getZoom());
         });
 
         const stopProperties = document.getElementById('stopProperties');
@@ -55,9 +94,7 @@ export function Map() {
             routeProperties.innerHTML = `${feature}`;
             routeProperties.style.display = 'block';
         };
-        let selectedStop = null;
-        let selectedRoute = null;
-
+        
         let renderableStops = [];
         let renderableRoutes = [];
 
@@ -216,6 +253,11 @@ export function Map() {
                                     }
                                 });
 
+                                // train dot color generator
+                                var trainIdNumber = Number(trainId);
+                                while (trainIdNumber > 100) {
+                                    trainIdNumber -= 100;
+                                }
                                 map.addLayer({
                                     'id': trainName,
                                     'type': 'circle',
@@ -225,7 +267,9 @@ export function Map() {
                                     },
                                     'paint': {
                                         'circle-radius': 6,
-                                        'circle-color': '#f0f000'
+                                        'circle-color': "#" + ((1 << 24) * (trainIdNumber / 100) | 0).toString(16).padStart(6, "0"),
+                                        'circle-stroke-color': '#ffffff',
+                                        'circle-stroke-width': 2
                                     }
                                 });
                             }
@@ -289,21 +333,6 @@ export function Map() {
                     }
                 });
             }
-            map.addInteraction('map-click', {
-                type: 'click',
-                handler: () => {
-                    // clear selected stop
-                    if (selectedStop) {
-                        map.setFeatureState(selectedStop, { selected: false });
-                        selectedStop = null;
-                    }
-                    // clear selected route
-                    if (selectedRoute) {
-                        map.setFeatureState(selectedRoute, { selected: false });
-                        selectedRoute = null;
-                    }
-                }
-            });
         });
         map.on('idle', () => {
             for (const id of renderableRoutes) {
