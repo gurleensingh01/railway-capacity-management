@@ -6,6 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { fetchGTFSData } from "./utils/fetchShapeData";
 import { useTrack } from "./context/TrackContext";
 import "../styles.css";
+import { fetchWeatherData } from "./utils/fetchWeather";
 
 export function Map() {
     const pathname = usePathname();
@@ -23,21 +24,47 @@ export function Map() {
     const trainPrefix = "train_"; // for train names
     var isRouteOnExpandedPage = (pathname === "/map");
     var today = new Date();
-    //var today = new Date("2025-03-06");
-    //today.setHours(16);
-    //today.setMinutes(40);
+    var today = new Date("2025-03-06");
+    today.setHours(16);
+    today.setMinutes(40);
     var day = today.getDay();
 
     const fetchLatestData = async () => {
         setLoading(true);
+
         const data = await fetchGTFSData();
+
+        // Convert stops object to an array
+        const stopCoordinates = Object.keys(data.stops).map(stopId => ({
+            id: stopId,
+            lat: parseFloat(data.stops[stopId].coordinates[1]),
+            lon: parseFloat(data.stops[stopId].coordinates[0])
+        }));
+
+        let weatherData = {};
+
+        // Fetch weather data sequentially for each stop
+        for (let stop of stopCoordinates) {
+            const weather = await fetchWeatherData(stop.lat, stop.lon);
+            weatherData[`${stop.lat},${stop.lon}`] = weather;
+        }
+
+        // Attach weather data to stops
+        const stopsWithWeather = stopCoordinates.map(stop => {
+            const weatherKey = `${stop.lat},${stop.lon}`;
+            return { ...data.stops[stop.id], id: stop.id, weather: weatherData[weatherKey] || null };
+        });
+
         setTrains(data.trains);
-        setStops(data.stops);
+        setStops(stopsWithWeather);
         setStopTimes(data.stopTimes);
+
         if (lastZoom === 0.0) setLastZoom(7.5);
-        if (!lastCenter) setLastCenter([-79.38032, 43.64481]); // TODO: automatically find center
+        if (!lastCenter) setLastCenter([-79.38032, 43.64481]);  // TODO: automatically find center
+
         setLoading(false);
     };
+
 
     useEffect(() => {
         if (trains.length === 0) return;
@@ -99,6 +126,51 @@ export function Map() {
         let renderableRoutes = [];
 
         map.on("load", () => {
+            // ===================== Add Weather Overlay ===================== //
+            stops.forEach((stop) => {
+                if (!stop.weather) return; // Skip stops without weather data
+            
+                const weatherLayerId = `weather_${stop.id}`;
+            
+                map.addSource(weatherLayerId, {
+                    type: "geojson",
+                    data: {
+                        type: "Feature",
+                        geometry: {
+                            type: "Point",
+                            coordinates: stop.coordinates
+                        },
+                        properties: {
+                            icon: stop.weather.icon
+                        }
+                    }
+                });
+            
+                map.addLayer({
+                    id: weatherLayerId,
+                    type: "symbol",
+                    source: weatherLayerId,
+                    layout: {
+                        "icon-image": ["get", "icon"],
+                        "icon-size": 0.5
+                    }
+                });
+            
+                // Add popup for weather
+                const popup = new mapboxgl.Popup({ offset: 25, closeButton: true })
+                    .setHTML(
+                        `<b>${stop.name}</b><br>
+                        Temp: ${stop.weather.temperature}°C<br>
+                        ${stop.weather.description}<br>
+                        Wind: ${stop.weather.windSpeed} km/h`
+                    );
+            
+                new mapboxgl.Marker()
+                    .setLngLat(stop.coordinates)
+                    .setPopup(popup)
+                    .addTo(map);
+            });
+            
             // ===================== Add Railway Lines ===================== //
             for (var trainId in trains) {
                 const trainAllCoordinates = trains[trainId]["allCoordinates"];
@@ -136,7 +208,8 @@ export function Map() {
                         "geometry": {
                             "type": "LineString",
                             "coordinates": trainAllCoordinates
-                        }
+                        },
+                        "id": shapeName
                     }
                 });
                 map.addLayer({
@@ -297,14 +370,19 @@ export function Map() {
                         'features': [
                             {
                                 'type': 'Feature',
+                                'id': stopName, 
                                 'geometry': {
                                     'type': 'Point',
                                     'coordinates': stopCoordinates
+                                },
+                                'properties': {
+                                    'name': stopName
                                 }
                             }
                         ]
                     }
                 });
+                
 
                 map.addLayer({
                     'id': stopName,
