@@ -9,6 +9,15 @@ import "../styles.css";
 import { fetchWeatherData } from "./utils/fetchWeather";
 
 export function Map() {
+    // for route names
+    const ROUTE_PREFIX = "route_";
+    // for stop names
+    const STOP_PREFIX = "stop_";
+    // for train names
+    const TRAIN_PREFIX = "train_";
+    // minimum zoom level for stops
+    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 6.0;
+
     const pathname = usePathname();
     const mapContainerRef = useRef();
     const mapRef = useRef();
@@ -19,14 +28,12 @@ export function Map() {
     const [lastCenter, setLastCenter] = useState(null);
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
-    const routePrefix = "route_"; // for route names
-    const stopPrefix = "stop_"; // for stop names
-    const trainPrefix = "train_"; // for train names
     var isRouteOnExpandedPage = (pathname === "/map");
     var today = new Date();
     var today = new Date("2025-03-06");
+    // TODO: use real time
     today.setHours(16);
-    today.setMinutes(40);
+    today.setMinutes(36);
     var day = today.getDay();
 
     const fetchLatestData = async () => {
@@ -59,8 +66,10 @@ export function Map() {
         setStops(stopsWithWeather);
         setStopTimes(data.stopTimes);
 
-        if (lastZoom === 0.0) setLastZoom(7.5);
-        if (!lastCenter) setLastCenter([-79.38032, 43.64481]);  // TODO: automatically find center
+        // default zoom level
+        if (lastZoom === 0.0) setLastZoom(6.0);
+        // TODO: automatically find center
+        if (!lastCenter) setLastCenter([-79.38032, 43.64481]);
 
         setLoading(false);
     };
@@ -71,10 +80,20 @@ export function Map() {
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
+        // current rendered stops
+        let renderedStops = [];
+
+        // routes that can be rendered
+        let renderableRoutes = [];
+
+        // current rendered routes
+        let renderedRoutes = [];
+
+        // TODO: this should be .env file
         mapboxgl.accessToken = "pk.eyJ1IjoiaGFveXUtZ3VvIiwiYSI6ImNtNmRhZDJqNzBxOHIybW9wdzNzdmY5a20ifQ.8wDFOeZgYyCp-7ggCDA6Fw";
         const map = new mapboxgl.Map({
             "container": "map",
-            "style": 'mapbox://styles/mapbox/dark-v11',
+            "style": 'mapbox://styles/mapbox/light-v11',
             "center": lastCenter,
             "zoom": lastZoom
         });
@@ -121,10 +140,9 @@ export function Map() {
             routeProperties.innerHTML = `${feature}`;
             routeProperties.style.display = 'block';
         };
-        
-        let renderableStops = [];
-        let renderableRoutes = [];
 
+
+        // ==================== on map load ==================== //
         map.on("load", () => {
             // ===================== Add Weather Overlay ===================== //
             stops.forEach((stop) => {
@@ -172,33 +190,35 @@ export function Map() {
             });
             
             // ===================== Add Railway Lines ===================== //
-            for (var trainId in trains) {
-                const trainAllCoordinates = trains[trainId]["allCoordinates"];
-                const trainStartDate = trains[trainId]["startDate"];
-                const trainEndDate = trains[trainId]["endDate"];
-                const trainDaysOfOperation = trains[trainId]["daysOfOperation"];
+
+            // *** L0
+            for (var tripId in stopTimes) {
+                const trainStartDate = trains[tripId]["startDate"];
+                const trainEndDate = trains[tripId]["endDate"];
+                const trainDaysOfOperation = trains[tripId]["daysOfOperation"];
 
                 // ===== Check renderability ===== //
                 // start/end dates
                 if (trainStartDate && trainStartDate > today) {
-                    console.log("[INFO]: Skipping train " + trainId + " because the start date is not met");
-                    continue;
+                    console.log("[INFO]: Skipping train " + tripId + " because the start date is not met");
+                    continue; // L0
                 }
                 if (trainEndDate && trainEndDate < today) {
-                    console.log("[INFO]: Skipping train " + trainId + " because the end date has been met");
-                    continue;
+                    console.log("[INFO]: Skipping train " + tripId + " because the end date has been met");
+                    continue; // L0
                 }
 
                 // days of operation
                 if (trainDaysOfOperation && !trainDaysOfOperation[day]) {
-                    console.log("[INFO]: Skipping train " + trainId + " because it does not run today");
-                    continue;
+                    console.log("[INFO]: Skipping train " + tripId + " because it does not run today");
+                    continue; // L0
                 }
 
 
                 // ===== This route can be rendered after this point ===== //
-                
-                const shapeName = routePrefix + trainId;
+
+                const trainAllCoordinates = trains[tripId]["allCoordinates"];
+                const shapeName = ROUTE_PREFIX + tripId;
                 renderableRoutes.push(shapeName);
                 map.addSource(shapeName, {
                     "type": "geojson",
@@ -222,7 +242,7 @@ export function Map() {
                         "line-cap": "round"
                     },
                     "paint": {
-                        "line-color": "#00f000",
+                        "line-color": "#00c000",
                         "line-width": 4
                     }
                 });
@@ -238,244 +258,205 @@ export function Map() {
                         setRoutePropertiesText(shapeName);
                     }
                 });
+
+                // ===================== Add Railway Stops ===================== //
+                const numberOfStops = Object.keys(stopTimes[tripId]);
+                for (var index in numberOfStops) {
+                    const stopId = stopTimes[tripId][index]["stopId"];
+                    if (!stops[stopId]) continue;
+                    const stopCoordinates = stops[stopId]["coordinates"];
+                    const stopName = STOP_PREFIX + stopId;
+                    if (!(renderedStops.includes(stopName))) {
+                        renderedStops.push(stopName);
+                        map.addSource(stopName, {
+                            'type': 'geojson',
+                            'data': {
+                                'type': 'FeatureCollection',
+                                'features': [
+                                    {
+                                        'type': 'Feature',
+                                        'id': stopName, 
+                                        'geometry': {
+                                            'type': 'Point',
+                                            'coordinates': stopCoordinates
+                                        },
+                                        'properties': {
+                                            'name': stopName
+                                        }
+                                    }
+                                ]
+                            }
+                        });
+                        map.addLayer({
+                            'id': stopName,
+                            'type': 'circle',
+                            'source': stopName,
+                            'minzoom': MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
+                            'layout': {
+                                'visibility': 'visible'
+                            },
+                            'paint': {
+                                'circle-radius': 6,
+                                'circle-color': '#404040'
+                            }
+                        });
+                        map.addInteraction(stopName + '_click', {
+                            type: 'click',
+                            target: { layerId: stopName },
+                            handler: ({ feature }) => {
+                                // clear existing selected stop
+                                if (selectedStop) map.setFeatureState(selectedStop, { selected: false });
+                                // set selected stop
+                                selectedStop = feature;
+                                map.setFeatureState(feature, { selected: true });
+                                setStopPropertiesText(stopName);
+                            }
+                        });
+                    }
+                }
                 
                 // ===== Estimate train location ===== //
-                // using stop times (iterate):
+
+                // - check departure time of this stop compared to current time:
+                const stopData = stopTimes[tripId];
                 // *** L1
-                for (var tripId in stopTimes) {
-                    if (tripId !== trainId) continue;
-                //  - check departure time of this stop compared to current time:
-                    const stopData = stopTimes[tripId];
-                    // *** L2
-                    for (let i = 0; i < Object.keys(stopData).length; i++) {
-                //      - if current time is less than or equal to the departure time
-                        const departTime = stopData[i]["departureTime"];
-                        const currentHours = today.getHours();
-                        const currentMinutes = today.getMinutes();
-                        const currentCombined = (currentHours * 60) + currentMinutes;
-                        const departHours = departTime.getHours();
-                        const departMinutes = departTime.getMinutes();
-                        const departCombined = (departHours * 60) + departMinutes;
-                        if (currentCombined <= departCombined) {
-                //          - then we know the train is here, or enroute to here
-                //          - check arrival time
-                            const arriveTime = stopData[i]["arrivalTime"];
-                            const arriveHours = arriveTime.getHours();
-                            const arriveMinutes = arriveTime.getMinutes();
-                            const arriveCombined = (arriveHours * 60) + arriveMinutes;
-                            let trainCoordinates = [0, 0];
-                //          - if current time is more than arrival time
-                            if (currentCombined >= arriveCombined || i === 0) {
-                //              - then the train is at this stop
-                //              // set trainCoordinates
-                                const stopId = stopData[i]["stopId"];
-                                // *** L3
-                                for (var id in stops) {
-                                    if (id !== stopId) continue;
-                                    const stopIdCoordinates = stops[id]["coordinates"];
-                                    trainCoordinates = stopIdCoordinates;
+                for (let i = 0; i < Object.keys(stopData).length; i++) {
+                    // - if current time is less than or equal to the departure time
+                    const departTime = stopData[i]["departureTime"];
+                    const currentTimeMinutes = (today.getHours() * 60) + today.getMinutes();
+                    const departTimeMinutes = (departTime.getHours() * 60) + departTime.getMinutes();
+                    if (currentTimeMinutes <= departTimeMinutes) {
+                        // - then we know the train is here, or enroute to here
+                        // - check arrival time
+                        const arriveTime = stopData[i]["arrivalTime"];
+                        const arriveTimeMinutes = (arriveTime.getHours() * 60) + arriveTime.getMinutes();
+                        let trainCoordinates = [0, 0];
+                        // - if current time is more than arrival time
+                        if (currentTimeMinutes >= arriveTimeMinutes || i === 0) {
+                            // - then the train is at this stop
+                            // set trainCoordinates
+                            const stopId = stopData[i]["stopId"];
+                            // *** L2
+                            for (var id in stops) {
+                                if (id !== stopId) continue;
+                                const stopIdCoordinates = stops[id]["coordinates"];
+                                trainCoordinates = stopIdCoordinates;
+                                break; // L2
+                            }
+                            // TODO: highlight this section of track to become red
+                        } else {
+                            // - then the train is enroute to this stop
+                            // calculate average train velocity
+                            // (this stop's distance - last stop's distance) / (this stop's arrival time - last stop's departure time)
+                            const currentDistance = parseFloat(stopData[i]["distance"]);
+                            const lastDistance = parseFloat(stopData[i - 1]["distance"]);
+                            const lastArriveTime = stopData[i - 1]["arrivalTime"];
+                            const lastArriveTimeMinutes = (lastArriveTime.getHours() * 60) + lastArriveTime.getMinutes();
+                            // velocity (meters/minute) * time = approximate train location
+                            const approxVelocity = (currentDistance - lastDistance) / (arriveTimeMinutes - lastArriveTimeMinutes);
+                            const approxDistance = (approxVelocity * (currentTimeMinutes - lastArriveTimeMinutes)) + lastDistance;
+                            // find closest renderable location
+                            const trainDistanceCoordinates = trains[tripId]["distanceCoordinates"];
+                            const keys = Object.keys(trainDistanceCoordinates);
+                            // *** L3
+                            for (const key in keys) {
+                                console.log(String(trainDistanceCoordinates[key]));
+                                const distance = Object.keys(trainDistanceCoordinates[key])[0];
+                                if (distance <= approxDistance) {
+                                    trainCoordinates = trainDistanceCoordinates[key][distance];
+                                } else {
                                     break; // L3
                                 }
-                //              // TODO: highlight this section of track to become red
-                //          - else
-                            } else {
-                //              - then the train is enroute to this stop
-                //              // calculate average train velocity
-                //              // (this stop's distance - last stop's distance) / (this stop's arrival time - last stop's departure time)
-                                const currentDistance = parseFloat(stopData[i]["distance"]);
-                                const lastDistance = parseFloat(stopData[i - 1]["distance"]);
-                                const lastArriveTime = stopData[i - 1]["arrivalTime"];
-                                const lastHours = lastArriveTime.getHours();
-                                const lastMinutes = lastArriveTime.getMinutes();
-                                const lastCombined = (lastHours * 60) + lastMinutes;
-                //              // velocity (meters/minute) * time = approximate train location
-                                const approxVelocity = (currentDistance - lastDistance) / (arriveCombined - lastCombined);
-                                const approxDistance = (approxVelocity * (currentCombined - lastCombined)) + lastDistance;
-                //              // find closest renderable location
-                                const trainDistanceCoordinates = trains[trainId]["distanceCoordinates"];
-                                const keys = Object.keys(trainDistanceCoordinates);
-                                // *** L4
-                                for (let j = 0; j < keys.length; j++) {
-                                    const distance = Object.keys(keys[i])[0];
-                                    if (distance <= approxDistance) {
-                                        trainCoordinates = trainDistanceCoordinates[distance];
-                                    } else {
-                                        break; // L4
-                                    }
-                                }
-                //              // TODO: highlight this section of track to become red
                             }
-                            // draw train dot at this approximate location
-                            if (trainCoordinates[0] === 0 && trainCoordinates[1] === 0) {
-                                console.log("[ERROR]: Could not locate train: " + trainId);
-                            } else {
-                                const trainName = trainPrefix + trainId;
-                                map.addSource(trainName, {
-                                    'type': 'geojson',
-                                    'data': {
-                                        'type': 'FeatureCollection',
-                                        'features': [
-                                            {
-                                                'type': 'Feature',
-                                                'geometry': {
-                                                    'type': 'Point',
-                                                    'coordinates': trainCoordinates
-                                                }
-                                            }
-                                        ]
-                                    }
-                                });
-
-                                // train dot color generator
-                                var trainIdNumber = Number(trainId);
-                                while (trainIdNumber > 100) {
-                                    trainIdNumber -= 100;
-                                }
-                                map.addLayer({
-                                    'id': trainName,
-                                    'type': 'circle',
-                                    'source': trainName,
-                                    'layout': {
-                                        'visibility': 'visible'
-                                    },
-                                    'paint': {
-                                        'circle-radius': 6,
-                                        'circle-color': "#" + ((1 << 24) * (trainIdNumber / 100) | 0).toString(16).padStart(6, "0"),
-                                        'circle-stroke-color': '#ffffff',
-                                        'circle-stroke-width': 2
-                                    }
-                                });
-                            }
-                            break; // L2
-                //      - else (current time > departure time)
-                        } else {
-                //          - the train left this stop, continue loop
-                            continue; // L2
+                            // TODO: highlight this section of track to become red
                         }
+                        // draw train dot at this approximate location
+                        if (trainCoordinates[0] === 0 && trainCoordinates[1] === 0) {
+                            console.log("[ERROR]: Could not locate train: " + tripId);
+                        } else {
+                            const trainName = TRAIN_PREFIX + tripId;
+                            map.addSource(trainName, {
+                                'type': 'geojson',
+                                'data': {
+                                    'type': 'FeatureCollection',
+                                    'features': [
+                                        {
+                                            'type': 'Feature',
+                                            'geometry': {
+                                                'type': 'Point',
+                                                'coordinates': trainCoordinates
+                                            }
+                                        }
+                                    ]
+                                }
+                            });
+
+                            // train dot color generator
+                            var tripIdNumber = Number(tripId);
+                            while (tripIdNumber > 100) {
+                                tripIdNumber -= 100;
+                            }
+                            map.addLayer({
+                                'id': trainName,
+                                'type': 'circle',
+                                'source': trainName,
+                                'layout': {
+                                    'visibility': 'visible'
+                                },
+                                'paint': {
+                                    'circle-radius': 8,
+                                    'circle-color': "#" + ((1 << 24) * (tripIdNumber / 100) | 0).toString(16).padStart(6, "0"),
+                                    'circle-stroke-color': '#404040',
+                                    'circle-stroke-width': 2
+                                }
+                            });
+                        }
+                        break; // L1
+                    } else {
+                        // - else (current time > departure time)
+                        // - the train left this stop, continue loop
+                        continue; // L1
                     }
-                    // already found the track, break loop
-                    break; // L1
                 }
             }
-
-            // ===================== Add Railway Stops ===================== //
-            for (var stopId in stops) {
-                const stopCoordinates = stops[stopId]["coordinates"];
-                const stopName = stopPrefix + stopId;
-                renderableStops.push(stopName);
-                map.addSource(stopName, {
-                    'type': 'geojson',
-                    'data': {
-                        'type': 'FeatureCollection',
-                        'features': [
-                            {
-                                'type': 'Feature',
-                                'id': stopName, 
-                                'geometry': {
-                                    'type': 'Point',
-                                    'coordinates': stopCoordinates
-                                },
-                                'properties': {
-                                    'name': stopName
-                                }
-                            }
-                        ]
-                    }
-                });
-                
-
-                map.addLayer({
-                    'id': stopName,
-                    'type': 'circle',
-                    'source': stopName,
-                    'layout': {
-                        'visibility': 'none'
-                    },
-                    'paint': {
-                        'circle-radius': 4,
-                        'circle-color': '#f0f0f0'
-                    }
-                });
-
-                
-                map.addInteraction(stopName + '_click', {
-                    type: 'click',
-                    target: { layerId: stopName },
-                    handler: ({ feature }) => {
-                        // clear existing selected stop
-                        if (selectedStop) map.setFeatureState(selectedStop, { selected: false });
-                        // set selected stop
-                        selectedStop = feature;
-                        map.setFeatureState(feature, { selected: true });
-                        setStopPropertiesText(stopName);
-                    }
-                });
-            }
         });
+
+        // ==================== on map idle loop ==================== //
         map.on('idle', () => {
-            for (const id of renderableRoutes) {
-                if (document.getElementById(id)) continue;
+            if (renderableRoutes.length !== renderedStops.length) {
+                for (const id of renderableRoutes) {
+                    if (document.getElementById(id)) continue;
 
-                const menu = document.getElementById('routes_menu');
-                const listItem = document.createElement('li');
-                const link = document.createElement('a');
-                link.id = id;
-                link.href = '#';
-                link.textContent = id;
-                link.className = 'map_menu_item_active';
+                    const menu = document.getElementById('routes_menu');
+                    const listItem = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.id = id;
+                    link.href = '#';
+                    link.textContent = id;
+                    link.className = 'map_menu_item_active';
 
-                link.onclick = function (e) {
-                    const clickedLayer = this.textContent;
-                    e.preventDefault();
-                    e.stopPropagation();
+                    link.onclick = function (e) {
+                        const clickedLayer = this.textContent;
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                    const visibility = map.getLayoutProperty(clickedLayer, 'visibility');
-                    if (visibility === 'visible') {
-                        // set clickedLayer visibility to none
-                        map.setLayoutProperty(clickedLayer, 'visibility', 'none');
-                        this.className = 'map_menu_item_inactive';
-                    } else {
-                        this.className = 'map_menu_item_active';
-                        // set clickedLayer visibility to visible
-                        map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
-                    }
-                };
+                        const visibility = map.getLayoutProperty(clickedLayer, 'visibility');
+                        if (visibility === 'visible') {
+                            // set clickedLayer visibility to none
+                            map.setLayoutProperty(clickedLayer, 'visibility', 'none');
+                            this.className = 'map_menu_item_inactive';
+                        } else {
+                            this.className = 'map_menu_item_active';
+                            // set clickedLayer visibility to visible
+                            map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
+                        }
+                    };
 
-                // add the item to the routes list
-                listItem.appendChild(link);
-                menu.appendChild(listItem);
-            }
-            for (const id of renderableStops) {
-                if (document.getElementById(id)) continue;
-
-                const menu = document.getElementById('stops_menu');
-                const listItem = document.createElement('li');
-                const link = document.createElement('a');
-                link.id = id;
-                link.href = '#';
-                link.textContent = id;
-                link.className = 'map_menu_item_inactive';
-
-                link.onclick = function (e) {
-                    const clickedLayer = this.textContent;
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const visibility = map.getLayoutProperty(clickedLayer, 'visibility');
-                    if (visibility === 'visible') {
-                        // set clickedLayer visibility to none
-                        map.setLayoutProperty(clickedLayer, 'visibility', 'none');
-                        this.className = 'map_menu_item_inactive';
-                    } else {
-                        this.className = 'map_menu_item_active';
-                        // set clickedLayer visibility to visible
-                        map.setLayoutProperty(clickedLayer, 'visibility', 'visible');
-                    }
-                };
-
-                // add the item to the routes list
-                listItem.appendChild(link);
-                menu.appendChild(listItem);
+                    // add the item to the routes list
+                    listItem.appendChild(link);
+                    menu.appendChild(listItem);
+                    renderedRoutes.push(id);
+                }
             }
         });
     }, [trains, stops]);
@@ -500,14 +481,6 @@ export function Map() {
                         <div>
                             <h2 className="map_menu_title">Routes</h2>
                             <ul id="routes_menu" className="list-disc"></ul>
-                        </div>
-                        <div>
-                            <h2 className="map_menu_title">Stops</h2>
-                            <ul id="stops_menu" className="list-disc"></ul>
-                        </div>
-                        <div>
-                            <h2 className="map_menu_title">On Route</h2>
-                            <ul id="trains_menu" className="list-disc"></ul>
                         </div>
                     </div>
                 </div>
