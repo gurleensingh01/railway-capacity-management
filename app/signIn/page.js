@@ -39,48 +39,35 @@ export default function Page() {
     };
 
     return (
-        <div className="h-full w-full flex flex-col m-auto justify-center">
-            <div className="m-12">
-                <div className="mb-12">
-                    <h1 className="text-6xl font-bold">Welcome</h1>
-                    <h2 className="text-lg font-bold">Please sign in to continue.</h2>
-                </div>
-
-                {error && <p className="text-red-500 mb-4">{error}</p>} {/* Show error message */}
-
-                <form onSubmit={onSubmit} className="flex flex-col">
-                    <h3 className="text-med font-bold pl-2 pb-2">E-mail:</h3>
-                    <input
-                        name="email"
-                        type="email"
-                        placeholder="e-mail"
-                        className="w-[80%] max-w-[560px] h-16 pl-6 mb-12"
-                    />
-
-                    <h3 className="text-med font-bold pl-2 pb-2">Password:</h3>
-                    <input
-                        name="password"
-                        type="password"
-                        placeholder="password"
-                        className="w-[80%] max-w-[560px] h-16 pl-6 mb-12"
-                    />
-
-                    <button
-                        type="submit"
-                        className="h-16 w-[160px] dark_button text-lg font-bold p-auto"
-                        disabled={loading} // Disable button while loading
-                    >
-                        {loading ? "Signing In..." : "Sign In"}
-                    </button>
-
-                    {/* Show loading icon when signing in */}
-                    {loading && (
-                        <div className="flex justify-center mt-4">
-                            <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
-                        </div>
-                    )}
-                </form>
+        <div className="ext_main_container">
+            <div className="mb-16">
+                <h1 className="ext_title">Welcome Back</h1>
+                <h2 className="ext_subtitle">Please sign in to continue</h2>
             </div>
+
+            {error && <p className="text-red-500 mb-4">{error}</p>} {/* Show error message */}
+
+            <form onSubmit={onSubmit} className="flex flex-col">
+                <h3 className="pl-2 pb-2 ext_label">E-mail</h3>
+                <input className="w-[80%] max-w-[560px] h-[64px] pt-4 pr-0 pb-4 pl-6 mb-8" name="email" type="email" placeholder="e-mail"/>
+
+                <h3 className="pl-2 pb-2 ext_label">Password</h3>
+                <input className="w-[80%] max-w-[560px] h-[64px] pt-4 pr-0 pb-4 pl-6 mb-16" name="password" type="password" placeholder="password"/>
+
+                <button type="submit" className="w-[80%] max-w-[560px] h-[64px] pv-4 ph-24 dark_button" disabled={loading}>
+                    {loading ? "Signing In..." : "Sign In"}
+                </button>
+
+                {/* Show loading icon when signing in */}
+                {loading && (
+                    <div className="flex justify-center mt-4">
+                        <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
+                    </div>
+                )}
+            </form>
+            <button onClick={() => router.push("/signUp")} className="pt-14 w-[80%] max-w-[560px] h-[64px] dark_button_without_background">
+                I Don't Have an Account
+            </button>
         </div>
     );
 }

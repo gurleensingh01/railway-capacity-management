@@ -15,7 +15,7 @@ export function KPI() {
     return (
         <div className="h-full w-full flex flex-row space-x-4 justify-stretch">
             <div className="h-full w-full flex flex-col justify-center text-center">
-                {!pathname.includes("/stats") && <h1 className="text-xl font-bold text-left pl-1 mb-2">Capacity %</h1>}
+                {!pathname.includes("/stats") && <h1 className="int_label text-left">Capacity %</h1>}
                 <div className="content_background h-full w-full flex flex-col justify-center text-center">
                     <Gauge
                         height={150}

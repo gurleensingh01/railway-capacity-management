@@ -19,3 +19,17 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.mapboxgl-popup {
+  z-index: 1000 !important; /* Ensure popup appears above other elements */
+  opacity: 1 !important; /* Ensure it is visible */
+}
+
+.mapboxgl-popup-content {
+  background-color: white;
+  color: black;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 14px;
+}
+

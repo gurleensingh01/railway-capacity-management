@@ -30,25 +30,16 @@ export default function WelcomePage() {
     }, []);
 
     return (
-        <div className="h-full w-full flex flex-col items-center justify-center">
-            <div className="text-center">
-                <h1 className="text-6xl font-bold mb-4">Welcome</h1>
-                <h2 className="text-2xl italic mb-8">Railway Capacity Management</h2>
+        <div className="ext_main_container">
+            <div className="h-full w-full flex flex-col items-center justify-center">
+                <div className="text-center">
+                    <h1 className="ext_title">Welcome</h1>
+                    <h2 className="font-thin italic mb-8">Railway Capacity Management</h2>
 
-                <div className="flex space-x-6">
-                {userId && <p className="text-lg font-bold text-gray-800">User ID: {userId}</p>}
-                    <button
-                        onClick={() => router.push("/signIn")}
-                        className="h-16 w-[160px] dark_button text-lg font-bold"
-                    >
-                        Sign In
-                    </button>
-                    <button
-                        onClick={() => router.push("/signUp")}
-                        className="h-16 w-[160px] dark_button text-lg font-bold"
-                    >
-                        Sign Up
-                    </button>
+                    <div className="flex flex-row space-x-5 justify-center" >
+                        <button onClick={() => router.push("/signUp")} className="w-[50%] max-w-[560px] h-[64px] pv-4 ph-24 dark_button">Register</button>
+                        <button onClick={() => router.push("/signIn")} className="w-[50%] max-w-[560px] h-[64px] pv-4 ph-24 dark_button">Sign In</button>
+                    </div>
                 </div>
             </div>
         </div>

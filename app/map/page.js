@@ -32,16 +32,14 @@ export default function Page() {
     var location = "Alberta";
 
     return (
-        <div className="h-full w-full flex flex-col">
+        <div className="int_main_container">
             <Sidebar/>
-
             {/* Main Content */}
             <div className="flex flex-col h-full w-full justify-stretch p-4">
-                <div className="p-4 pb-0 mb-0">
-                    <h1 className="text-4xl font-bold">Railway Map</h1>
-                    <h2 className="text-base font-bold pb-8">{location}</h2>
+                <div className="p-4 pt-1 mb-4 mt-0">
+                    <h1 className="int_title">Railway Map</h1>
+                    <h2 className="int_subtitle">{location}</h2>
                 </div>
-                {/* TODO: use actual data */}
                 <div className="flex-auto flex flex-col h-full w-full">
                     <Map/>
                 </div>
