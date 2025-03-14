@@ -64,7 +64,7 @@ export function Map() {
         let renderedStops = [];
 
         // TODO: this should be .env file
-        mapboxgl.accessToken = "pk.eyJ1IjoiaGFveXUtZ3VvIiwiYSI6ImNtNmRhZDJqNzBxOHIybW9wdzNzdmY5a20ifQ.8wDFOeZgYyCp-7ggCDA6Fw";
+        mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;;
         const map = new mapboxgl.Map({
             "container": "map",
             "style": "mapbox://styles/mapbox/light-v9",
