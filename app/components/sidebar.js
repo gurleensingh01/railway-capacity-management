@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";  // Import router to handle navigation
 import "../styles.css";
+import { signOut } from "firebase/auth";
+import { auth } from "./utils/firebase";
 
 export function Sidebar() {
     const router = useRouter();
@@ -11,11 +12,14 @@ export function Sidebar() {
         setIsSidebarOpen(!isSidebarOpen);
     };
 
-    // Logout function to clear the auth cookie and redirect
-    const handleLogout = () => {
-        document.cookie = "authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;"; // Clear authentication cookie
-        router.replace("/"); // Redirect to the first page (welcome page)
-    };
+    const handleLogout = async () => {
+        try {
+          await signOut(auth);
+          router.replace("/");
+        } catch (error) {
+          console.error("Logout error:", error.message);
+        }
+      };
 
     return (
         <>
