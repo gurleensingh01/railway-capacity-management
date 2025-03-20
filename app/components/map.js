@@ -18,10 +18,13 @@ export function Map() {
     // for track overlays
     const OVERLAY_PREFIX = "overlay_";
     // minimum zoom level for stops
-    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 6.5;
+    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
+    const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
     // color gradient
     // number -> # of trains
     // hex -> the color to use for this capacity
+    
+    // use this for prod (or ~80 trains/track):
     // const lineColorGradient = {
     //    0: "#00ff00",
     //    10: "#22cc00",
@@ -33,11 +36,104 @@ export function Map() {
     //    70: "#ee0000",
     //    80: "#000000"
     //}
+    
+    // use this for debug (or ~10 trains/track)
     const lineColorGradient = {
         0: "#00ff00",
-        3: "#ffff00",
-        5: "#ff0000",
-        7: "#c00000"
+        2: "#66ff00",
+        4: "#ddff00",
+        6: "#ff2200",
+        8: "#000000"
+    }
+
+    function getTrainHightlightColor(trainsIn) {
+        var color = lineColorGradient[Object.keys(lineColorGradient)[0]];
+        for (const capacity in lineColorGradient) {
+            if (trainsIn >= capacity) {
+                color = lineColorGradient[capacity];
+            }
+        }
+        return color;
+    }
+    
+    // sorting algorithm for train capacity highlights
+    function sortAndMerge(unsortedIn) {
+        var sorted = [];
+        // for each in unsorted:
+        for (const current of unsortedIn) {
+            var matched = true;
+            // search sortedCoordinates for matching number of trains on this track
+            if (sorted.length > 0) {
+                for (let i = 0; i < sorted.length; i++) {
+                    if (sorted[i]["trains"] == current["trains"]) {
+                        // if found:
+                        //      test to see if the coordinates start with last current coordinate
+                        const currentCoordinateLength = current["coordinates"].length;
+                        const a = current["coordinates"][currentCoordinateLength - 1][0];
+                        const b = current["coordinates"][currentCoordinateLength - 1][1];
+                        const c = sorted[i]["coordinates"][0][0];
+                        const d = sorted[i]["coordinates"][0][1];
+                        
+                        const outCoordinateLength = sorted[i]["coordinates"].length;
+                        const e = current["coordinates"][0][0];
+                        const f = current["coordinates"][0][1];
+                        const g = sorted[i]["coordinates"][outCoordinateLength - 1][0];
+                        const h = sorted[i]["coordinates"][outCoordinateLength - 1][1];
+                        //      if it starts with the last current coordinate:
+                        if (a == c && b == d) {
+                            //          append this unsorted coordinate to the start of the sorted coordinate
+                            sorted[i]["coordinates"] = [...current["coordinates"], ...sorted[i]["coordinates"]];
+                            break;
+                        }
+                        //      if it ends with the first current coordinate:
+                        if (e == g && f == h) {
+                            //          append this unsorted coordinate to the end of the sorted coordinate
+                            sorted[i]["coordinates"] = [...sorted[i]["coordinates"], ...current["coordinates"]];
+                            break;
+                        }
+                    }
+                    if (i + 1 >= sorted.length) {
+                        //      else no matches
+                        //          add to sortedCoordinates with this number of trains as there is no match.
+                        matched = false;
+                    }
+                }
+            }
+            if (!matched || sorted.length === 0) {
+                //  not found:
+                //      add to sorted coordinates
+                sorted.push(
+                    {
+                        "trains": current["trains"],
+                        "coordinates": current["coordinates"]
+                    }
+                );
+            }
+        }
+
+        // sort output based on # of trains
+        // so that the most # of trains is last
+        // IMPORTANT: ORDER MATTERS FOR CORRECT LAYER RENDERING
+        var out = [];
+        for (const item of sorted) {
+            if (out.length == 0) {
+                // just add to list
+                out.push(item);
+            } else {
+                // we need to sort this item based on number of trains
+                for (let i = 0; i < out.length; i++) {
+                    if (out[i]["trains"] < item["trains"] && i + 1 < out.length) {
+                        continue;
+                    } else {
+                        // append here
+                        out.splice(i, 0, item);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return out;
     }
 
     const pathname = usePathname();
@@ -58,6 +154,11 @@ export function Map() {
     // TODO: mask map https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
     // var today = new Date();
     var day = today.getDay();
+    // cached weather for stops
+    // {
+    //      stopId: theData
+    // }
+    var stopsWeatherCache = {};
 
     const fetchLatestData = async () => {
         setLoading(true);
@@ -69,7 +170,7 @@ export function Map() {
         setStopTimes(data.stopTimes);
 
         // default zoom level
-        if (lastZoom === 0.0) setLastZoom(6.5);
+        if (lastZoom === 0.0) setLastZoom(MINIMUM_ZOOM_FOR_STOP_VISIBILITY);
         // TODO: automatically find center
         if (!lastCenter) setLastCenter([-79.38032, 43.64481]);
 
@@ -78,13 +179,15 @@ export function Map() {
 
 
     useEffect(() => {
+        // resets
+        document.getElementById("train_menu").textContent = "";
+        
         if (trains.length === 0) return;
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
         let renderedStops = [];
 
-        // TODO: this should be .env file
         mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;;
         const map = new mapboxgl.Map({
             "container": "map",
@@ -93,16 +196,18 @@ export function Map() {
             "zoom": lastZoom
         });
 
-        // disables
+        // reenable if required
         map["doubleClickZoom"].disable();
         map["dragRotate"].disable();
         map["keyboard"].disable();
         map["touchZoomRotate"].disable();
+        
+        map.getCanvas().style.cursor = 'pointer';
 
-        map.addInteraction("map-click", {
+        map.addInteraction("map_click", {
             type: "click",
             handler: ({feature}) => {
-                document.getElementById("info_area").text = "Select a stop or train";
+                document.getElementById("info_area").text = "Click on a stop or train <br/>to view its information.";
                 // update current zoom / center
                 setLastZoom(map.getZoom());
                 setLastCenter(map.getCenter());
@@ -133,6 +238,18 @@ export function Map() {
         //      }
         // }
         var overlaidPointSections = {};
+        
+        // {
+        //      "trainId": {
+        //          "coordinates": [[coord, coord]],
+        //          "isMoving": boolean
+        // }
+        var trainShapesToRender = {};
+        
+        // {
+        //      "stopId": [[coord, coord]]
+        // }
+        var stopShapesToRender = {};
 
 
         // ==================== on map load ==================== //
@@ -143,6 +260,7 @@ export function Map() {
 
             // ===================== Add Railway Lines ===================== //
 
+            // test if this railway line is valid
             // *** L0
             for (var tripId in stopTimes) {
                 const trainStartDate = trains[tripId]["startDate"];
@@ -245,59 +363,9 @@ export function Map() {
                     }
                     // draw train dot at this approximate location
                     if (trainCoordinates[0] !== 0 && trainCoordinates[1] !== 0) {
-                        const trainName = TRAIN_PREFIX + tripId;
-                        map.addSource(trainName, {
-                            "type": "geojson",
-                            "data": {
-                                "type": "FeatureCollection",
-                                "features": [
-                                    {
-                                        "type": "Feature",
-                                        "geometry": {
-                                            "type": "Point",
-                                            "coordinates": trainCoordinates
-                                        }
-                                    }
-                                ]
-                            }
-                        });
-
-                        // train dot color generator
-                        var tripIdNumber = Number(tripId);
-                        while (tripIdNumber >= 100) {
-                            tripIdNumber -= 100;
-                        }
-                        if (!map.getLayer(trainName)) {
-                            map.addLayer({
-                                "id": trainName,
-                                "type": "circle",
-                                "source": trainName,
-                                "layout": {
-                                    "visibility": "visible"
-                                },
-                                "paint": {
-                                    "circle-radius": 8,
-                                    "circle-color": "#" + ((1 << 24) * (tripIdNumber / 100) | 0).toString(16).padStart(6, "0"),
-                                    "circle-stroke-color": "#5f5f5f",
-                                    "circle-stroke-width": 2
-                                }
-                            });
-                            map.addInteraction(trainName + "_click", {
-                                type: "click",
-                                target: { layerId: trainName },
-                                handler: async ({ feature }) => {
-                                    console.log("[DEBUG]: Clicked train: " + trainName.replace(TRAIN_PREFIX, ""));
-                                    const infoArea = document.getElementById("info_area");
-                                    var innerHtml = "";
-                                    innerHtml += "<b>Train ID</b><br>" + trainName.replace(TRAIN_PREFIX, "");
-                                    innerHtml += "<br><br>"
-                                    innerHtml += "<b>Location</b><br>" + "Lon: " + trainCoordinates[0] + "<br>" + "Lat: " + trainCoordinates[1];
-                                    innerHtml += "<br><br>"
-                                    innerHtml += "<b>Status</b><br>" + (trainIsMoving ? "Enroute to next station" : "Stopped at station");
-                                    infoArea.innerHTML = innerHtml;
-                                }
-                            });
-                        }
+                        trainShapesToRender[tripId] = {};
+                        trainShapesToRender[tripId]["coordinates"] = trainCoordinates;
+                        trainShapesToRender[tripId]["isMoving"] = trainIsMoving;
                     }
                     break; // L1
                 }
@@ -347,41 +415,45 @@ export function Map() {
                     lastCoordinate = coordinate;
                 }
 
-                // draw this train's shape
                 const shapeName = ROUTE_PREFIX + tripId;
-                map.addSource(shapeName, {
-                    "type": "geojson",
-                    "data": {
-                        "type": "Feature",
-                        "properties": {},
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": trainAllCoordinates
-                        },
-                        "id": shapeName
-                    }
-                });
-                map.addLayer({
-                    "id": shapeName,
-                    "type": "line",
-                    "source": shapeName,
-                    "layout": {
-                        "visibility": "visible",
-                        "line-join": "round",
-                        // "line-cap": "round"
-                    },
-                    "paint": {
-                        "line-opacity": 1.0,
-                        "line-color": "#808080",
-                        "line-width": 2
-                    }
-                });
+                // this is now redundant, since traffic is always above the shape
+                // kept in code in case we want it later
+                // - draw this train's shape
+                // map.addSource(shapeName, {
+                //     "type": "geojson",
+                //     "data": {
+                //         "type": "Feature",
+                //         "properties": {},
+                //         "geometry": {
+                //             "type": "LineString",
+                //             "coordinates": trainAllCoordinates
+                //         },
+                //         "id": shapeName
+                //     }
+                // });
+                // map.addLayer({
+                //     "id": shapeName,
+                //     "type": "line",
+                //     "slot": "bottom",
+                //     "source": shapeName,
+                //     "layout": {
+                //         "visibility": "visible",
+                //         "line-join": "round",
+                //         "line-cap": "round"
+                //     },
+                //     "paint": {
+                //         "line-opacity": 1.0,
+                //         "line-color": "#808080",
+                //         "line-width": 2
+                //     }
+                // });
 
+                // delete existing element if exists
                 const existingElement = document.getElementById(shapeName);
                 if (existingElement) {
-                    // delete the existing element
                     existingElement.parentElement.remove();
                 }
+                // add element for train toggle
                 const menu = document.getElementById("train_menu");
                 const listItem = document.createElement("li");
                 const link = document.createElement("a");
@@ -419,66 +491,15 @@ export function Map() {
                     const stopId = stopTimes[tripId][index]["stopId"];
                     if (!stops[stopId]) continue;
                     const stopCoordinates = stops[stopId]["coordinates"];
-                    const stopName = STOP_PREFIX + stopId;
-                    if (!(renderedStops.includes(stopName))) {
-                        renderedStops.push(stopName);
-                        map.addSource(stopName, {
-                            "type": "geojson",
-                            "data": {
-                                "type": "FeatureCollection",
-                                "features": [
-                                    {
-                                        "type": "Feature",
-                                        "id": stopName, 
-                                        "geometry": {
-                                            "type": "Point",
-                                            "coordinates": stopCoordinates
-                                        },
-                                        "properties": {
-                                            "name": stopName
-                                        }
-                                    }
-                                ]
-                            }
-                        });
-                        if (!map.getLayer(stopName)) {
-                            map.addLayer({
-                                "id": stopName,
-                                "type": "circle",
-                                "source": stopName,
-                                "minzoom": MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
-                                "layout": {
-                                    "visibility": "visible"
-                                },
-                                "paint": {
-                                    "circle-radius": 6,
-                                    "circle-color": "#404040"
-                                }
-                            });
-                            
-                            map.addInteraction(stopName + "_click", {
-                                type: "click",
-                                target: { layerId: stopName },
-                                handler: async ({ feature }) => {
-                                    console.log("[DEBUG]: Clicked stop: " + stopId);
-                                    const infoArea = document.getElementById("info_area");
-                                    var innerHtml = "";
-                                    innerHtml = "Loading stop info...";
-                                    infoArea.innerHTML = innerHtml;
-
-                                    const weather = await fetchWeatherData(stopCoordinates[1], stopCoordinates[0]);
-                                    innerHtml = "<b>Stop ID</b><br>" + stopId;
-                                    innerHtml += "<br><br>"
-                                    innerHtml += "<b>Current Weather</b><br>" + weather.temperature + "°C, " + weather.description;
-                                    infoArea.innerHTML = innerHtml;
-                                }
-                            });
-                        }
+                    if (!(renderedStops.includes(stopId))) {
+                        renderedStops.push(stopId);
+                        stopShapesToRender[stopId] = stopCoordinates;
                     }
                 }
             }
 
-            // TODO: sort all coordinates to reduce the amount of lines to draw.
+
+            // ==================== Add layers to map ==================== //
             // [
             //      {
             //          "trains": 1,
@@ -503,7 +524,33 @@ export function Map() {
             //      }
             //      ...
             // ]
-            var unsorted = [];
+            var unsortedMultiTrain = [];
+            var unsortedUniqueTrain = [];
+
+            // add all overlays to unsortedMultiTrain
+            for (const entry in overlaidPointSections) {
+                unsortedMultiTrain.push(
+                    {
+                        "trains": overlaidPointSections[entry]["trains"],
+                        "coordinates": [overlaidPointSections[entry]["from"], overlaidPointSections[entry]["to"]]
+                    }
+                );
+            }
+            
+            // add all unique to unsortedUniqueTrain
+            for (const item of uniquePointSections) {
+                const coordStrings = item.split(",");
+                const coord0 = parseFloat(coordStrings[0]);
+                const coord1 = parseFloat(coordStrings[1]);
+                const coord2 = parseFloat(coordStrings[2]);
+                const coord3 = parseFloat(coordStrings[3]);
+                unsortedUniqueTrain.push(
+                    {
+                        "trains": 1,
+                        "coordinates": [[coord0, coord1], [coord2, coord3]],
+                    }
+                );
+            }
             
             // [
             //      {
@@ -516,106 +563,183 @@ export function Map() {
             //          ...
             //      }
             // ]
-            var sortedCoordinates = [];
-            for (const entry in overlaidPointSections) {
-                unsorted.push(
-                    {
-                        "trains": overlaidPointSections[entry]["trains"],
-                        "coordinates": [overlaidPointSections[entry]["from"], overlaidPointSections[entry]["to"]]
-                    }
-                );
-            }
+            var sortedUniqueCoordinates = sortAndMerge(unsortedUniqueTrain);
+            var sortedCoordinates = sortAndMerge(unsortedMultiTrain);
 
-            // for each in unsorted:
-            for (const current of unsorted) {
-                var matched = true;
-                // search sortedCoordinates for matching number of trains on this track
-                if (sortedCoordinates.length > 0) {
-                    for (let i = 0; i < sortedCoordinates.length; i++) {
-                        if (sortedCoordinates[i]["trains"] == current["trains"]) {
-                            // if found:
-                            //      test to see if the coordinates start with last current coordinate
-                            const a = current["coordinates"][current["coordinates"].length - 1][0];
-                            const b = current["coordinates"][current["coordinates"].length - 1][1];
-                            const c = sortedCoordinates[i]["coordinates"][0][0];
-                            const d = sortedCoordinates[i]["coordinates"][0][1];
-                            
-                            const e = current["coordinates"][0][0];
-                            const f = current["coordinates"][0][1];
-                            const g = sortedCoordinates[i]["coordinates"][sortedCoordinates[i]["coordinates"].length - 1][0];
-                            const h = sortedCoordinates[i]["coordinates"][sortedCoordinates[i]["coordinates"].length - 1][1];
-                            //      if it starts with the last current coordinate:
-                            if (a == c && b == d) {
-                                //          append this unsorted coordinate to the start of the sorted coordinate
-                                sortedCoordinates[i]["coordinates"] = [...current["coordinates"], ...sortedCoordinates[i]["coordinates"]];
-                                break;
-                            }
-                            //      if it ends with the first current coordinate:
-                            if (e == g && f == h) {
-                                //          append this unsorted coordinate to the end of the sorted coordinate
-                                sortedCoordinates[i]["coordinates"] = [...sortedCoordinates[i]["coordinates"], ...current["coordinates"]];
-                                break;
-                            }
+            function renderHighlight(sortedCoordinatesIn) {
+                for (const obj of sortedCoordinatesIn) {
+                    const numberOfTrains = obj["trains"];
+                    const coordinates = obj["coordinates"];
+                    const shapeName = OVERLAY_PREFIX + numberOfTrains + "_" + String(coordinates.toString());
+                    map.addSource(shapeName, {
+                        "type": "geojson",
+                        "data": {
+                            "type": "Feature",
+                            "properties": {},
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": coordinates,
+                            },
+                            "id": shapeName
                         }
-                        if (i + 1 >= sortedCoordinates.length) {
-                            //      else no matches
-                            //          add to sortedCoordinates with this number of trains as there is no match.
-                            matched = false;
-                        }
-                    }
-                }
-                if (!matched || sortedCoordinates.length === 0) {
-                    //  not found:
-                    //      add to sorted coordinates
-                    sortedCoordinates.push(
-                        {
-                            "trains": current["trains"],
-                            "coordinates": current["coordinates"]
-                        }
-                    );
-                }
-            }
-
-            console.log("Overlays: " + sortedCoordinates.length);
-            for (const obj of sortedCoordinates) {
-                const numberOfTrains = obj["trains"];
-                const coordinates = obj["coordinates"];
-                const shapeName = OVERLAY_PREFIX + String(coordinates.toString());
-                map.addSource(shapeName, {
-                    "type": "geojson",
-                    "data": {
-                        "type": "Feature",
-                        "properties": {},
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": coordinates,
+                    });
+                    
+                    map.addLayer({
+                        "id": shapeName,
+                        "type": "line",
+                        "source": shapeName,
+                        "layout": {
+                            "visibility": "visible",
+                            "line-join": "round",
+                            "line-cap": "round"
                         },
-                        "id": shapeName
+
+                        "paint": {
+                            "line-opacity": 1.0,
+                            "line-color": getTrainHightlightColor(numberOfTrains),
+                            "line-width": 5
+                        }
+                    });
+                }
+            }
+            
+            function renderTrains() {
+                for (const tripId in trainShapesToRender) {
+                    const trainName = TRAIN_PREFIX + tripId;
+                    const trainCoordinates = trainShapesToRender[tripId]["coordinates"];
+                    const trainIsMoving = trainShapesToRender[tripId]["isMoving"];
+                    map.addSource(trainName, {
+                        "type": "geojson",
+                        "data": {
+                            "type": "FeatureCollection",
+                            "features": [
+                                {
+                                    "type": "Feature",
+                                    "geometry": {
+                                        "type": "Point",
+                                        "coordinates": trainCoordinates
+                                    }
+                                }
+                            ]
+                        }
+                    });
+
+                    // train dot color generator
+                    var tripIdNumber = Number(tripId);
+                    while (tripIdNumber >= 100) {
+                        tripIdNumber -= 100;
                     }
-                });
-                var color = "";
-                for (const capacity in lineColorGradient) {
-                    if (numberOfTrains > capacity) {
-                        color = lineColorGradient[capacity];
+                    if (!map.getLayer(trainName)) {
+                        map.addLayer({
+                            "id": trainName,
+                            "type": "circle",
+                            "minzoom": MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY,
+                            "source": trainName,
+                            "layout": {
+                                "visibility": "visible"
+                            },
+                            "paint": {
+                                "circle-radius": 9,
+                                "circle-color": "#" + ((1 << 24) * (tripIdNumber / 100) | 0).toString(16).padStart(6, "0"),
+                                "circle-stroke-color": "#5f5f5f",
+                                "circle-stroke-width": 2
+                            }
+                        });
+                        map.addInteraction(trainName + "_click", {
+                            type: "click",
+                            target: { layerId: trainName },
+                            handler: async ({ feature }) => {
+                                console.log("[DEBUG]: Mouse entered train: " + trainName.replace(TRAIN_PREFIX, ""));
+                                const infoArea = document.getElementById("info_area");
+                                var innerHtml = "";
+                                innerHtml += "<b>Train ID</b><br>" + trainName.replace(TRAIN_PREFIX, "");
+                                innerHtml += "<br><br>"
+                                innerHtml += "<b>Location</b><br>" + "Lon: " + trainCoordinates[0] + "<br>" + "Lat: " + trainCoordinates[1];
+                                innerHtml += "<br><br>"
+                                innerHtml += "<b>Status</b><br>" + (trainIsMoving ? "Enroute to next station" : "Stopped at station");
+                                infoArea.innerHTML = innerHtml;
+                            }
+                        });
                     }
                 }
-                map.addLayer({
-                    "id": shapeName,
-                    "type": "line",
-                    "source": shapeName,
-                    "layout": {
-                        "visibility": "visible",
-                        "line-join": "round",
-                        // "line-cap": "round"
-                    },
-                    // TODO: use numberOfTrains to generate colour
-                    "paint": {
-                        "line-opacity": 0.5,
-                        "line-color": color,
-                        "line-width": 5
-                    }
-                });
             }
+            
+            function renderStops() {
+                for (const stopId in stopShapesToRender) {
+                    const stopName = STOP_PREFIX + stopId;
+                    const stopCoordinates = stopShapesToRender[stopId];
+                    map.addSource(stopName, {
+                        "type": "geojson",
+                        "data": {
+                            "type": "FeatureCollection",
+                            "features": [
+                                {
+                                    "type": "Feature",
+                                    "id": stopName, 
+                                    "geometry": {
+                                        "type": "Point",
+                                        "coordinates": stopCoordinates
+                                    },
+                                    "properties": {
+                                        "name": stopName
+                                    }
+                                }
+                            ]
+                        }
+                    });
+                    if (!map.getLayer(stopName)) {
+                        map.addLayer({
+                            "id": stopName,
+                            "type": "circle",
+                            "source": stopName,
+                            "minzoom": MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
+                            "layout": {
+                                "visibility": "visible"
+                            },
+                            "paint": {
+                                "circle-radius": 5,
+                                "circle-color": "#606060"
+                            }
+                        });
+                        
+                        map.addInteraction(stopName + "_click", {
+                            type: "click",
+                            target: { layerId: stopName },
+                            handler: async ({ feature }) => {
+                                console.log("[DEBUG]: Mouse entered stop: " + stopId);
+                                const infoArea = document.getElementById("info_area");
+                                var innerHtml = "";
+                                innerHtml = "<b>Stop ID</b><br>" + stopId;
+                                innerHtml += "<br><br>"
+                                innerHtml += "<b>Current Weather</b><br>";
+                                innerHtml += "Loading weather...";
+                                infoArea.innerHTML = innerHtml;
+
+                                var weather = null;
+                                if (stopsWeatherCache[stopName]) {
+                                    weather = stopsWeatherCache[stopName];
+                                } else {
+                                    weather = await fetchWeatherData(stopCoordinates[1], stopCoordinates[0]);
+                                    stopsWeatherCache[stopName] = weather;
+                                }
+                                innerHtml = innerHtml.replace("Loading weather...", weather.temperature + "°C, " + weather.description);
+                                infoArea.innerHTML = innerHtml;
+                            }
+                        });
+                    }
+                }
+            }
+
+            // ====================== Render layers ====================== //
+            // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
+            // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
+            // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
+            // ========================== START ========================== //
+            renderHighlight(sortedUniqueCoordinates);
+            renderHighlight(sortedCoordinates);
+            renderTrains();
+            renderStops();
+            // =========================== END =========================== //
 
             console.log("[INFO]: Total trains: " + totalTrains);
             console.log("[INFO]: Total trains at stops: " + totalTrainsAtStops);
@@ -644,7 +768,10 @@ export function Map() {
                     <div className="map_menu_section">
                         <div className="map_menu">
                             <h2 className="map_menu_title">Info</h2>
-                            <p id="info_area">Select a stop or train</p>
+                            <p id="info_area">
+                                Click on a stop or train <br/>
+                                to view its information.
+                            </p>
                         </div>
                         <div className="map_menu">
                             <h2 className="map_menu_title">Train</h2>
