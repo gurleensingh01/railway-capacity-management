@@ -15,10 +15,30 @@ export function Map() {
     const STOP_PREFIX = "stop_";
     // for train names
     const TRAIN_PREFIX = "train_";
+    // for track overlays
+    const OVERLAY_PREFIX = "overlay_";
     // minimum zoom level for stops
-    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 6.0;
-    // max traffic (number of trains per coordinate)
-    const MAX_TRAFFIC = 80;
+    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 6.5;
+    // color gradient
+    // number -> # of trains
+    // hex -> the color to use for this capacity
+    // const lineColorGradient = {
+    //    0: "#00ff00",
+    //    10: "#22cc00",
+    //    20: "#449900",
+    //    30: "#667700",
+    //    40: "#885500",
+    //    50: "#aa3300",
+    //    60: "#cc1100",
+    //    70: "#ee0000",
+    //    80: "#000000"
+    //}
+    const lineColorGradient = {
+        0: "#00ff00",
+        3: "#ffff00",
+        5: "#ff0000",
+        7: "#c00000"
+    }
 
     const pathname = usePathname();
     const mapContainerRef = useRef();
@@ -31,11 +51,12 @@ export function Map() {
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
     var isRouteOnExpandedPage = (pathname === "/map");
-    // var today = new Date("2025-03-06");
-    // today.setHours(17);
-    // today.setMinutes(20);
+    var today = new Date("2025-03-06");
+    today.setHours(17);
+    today.setMinutes(50);
     // TODO: auto-refresh would be nice
-    var today = new Date();
+    // TODO: mask map https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
+    // var today = new Date();
     var day = today.getDay();
 
     const fetchLatestData = async () => {
@@ -48,7 +69,7 @@ export function Map() {
         setStopTimes(data.stopTimes);
 
         // default zoom level
-        if (lastZoom === 0.0) setLastZoom(6.0);
+        if (lastZoom === 0.0) setLastZoom(6.5);
         // TODO: automatically find center
         if (!lastCenter) setLastCenter([-79.38032, 43.64481]);
 
@@ -93,6 +114,26 @@ export function Map() {
         // update current zoom
         map.on("zoomend", () => { setLastZoom(map.getZoom()); });
 
+        // Unique train coordinates that don't overlay onto other tracks
+        // [
+        //      "coordLonA, coordLatA, coordLonB, coordLatB",
+        //      "coordLonC, coordLatC, coordLonD, coordLatD",
+        //      "coordLonA, coordLatA, coordLonE, coordLatE",
+        //      ...
+        // ]
+        //
+        var uniquePointSections = [];
+
+        // Overlaid train coordinates that overlay on other tracks
+        // {
+        //      "coordLonA, coordLatA, coordLonB, coordLatB": {
+        //          "trains": 3,
+        //          "from": [coordLonA, coordLatA],
+        //          "to":   [coordLonB, coordLatB]
+        //      }
+        // }
+        var overlaidPointSections = {};
+
 
         // ==================== on map load ==================== //
         map.on("load", () => {
@@ -101,7 +142,6 @@ export function Map() {
             var totalTrainsMoving = 0;
 
             // ===================== Add Railway Lines ===================== //
-            var routeParts = [];
 
             // *** L0
             for (var tripId in stopTimes) {
@@ -177,7 +217,6 @@ export function Map() {
                                 break; // L2
                             }
                         }
-                        // TODO: highlight this section of track to become red
                     } else {
                         totalTrainsMoving += 1;
                         trainIsMoving = true;
@@ -203,7 +242,6 @@ export function Map() {
                                 break; // L3
                             }
                         }
-                        // TODO: highlight this section of track to become red
                     }
                     // draw train dot at this approximate location
                     if (trainCoordinates[0] !== 0 && trainCoordinates[1] !== 0) {
@@ -226,7 +264,7 @@ export function Map() {
 
                         // train dot color generator
                         var tripIdNumber = Number(tripId);
-                        while (tripIdNumber > 100) {
+                        while (tripIdNumber >= 100) {
                             tripIdNumber -= 100;
                         }
                         if (!map.getLayer(trainName)) {
@@ -240,7 +278,7 @@ export function Map() {
                                 "paint": {
                                     "circle-radius": 8,
                                     "circle-color": "#" + ((1 << 24) * (tripIdNumber / 100) | 0).toString(16).padStart(6, "0"),
-                                    "circle-stroke-color": "#404040",
+                                    "circle-stroke-color": "#5f5f5f",
                                     "circle-stroke-width": 2
                                 }
                             });
@@ -266,8 +304,50 @@ export function Map() {
 
                 // ===== This route can be rendered after this point ===== //
                 totalTrains += 1;
-
                 const trainAllCoordinates = trains[tripId]["allCoordinates"];
+
+                // Function to process coordinates and update tracking
+                function processCoordinatePair(a0, a1, b0, b1) {
+                    const forwardKey = `${a0},${a1},${b0},${b1}`;
+                    const reverseKey = `${b0},${b1},${a0},${a1}`;
+                    if (uniquePointSections.includes(forwardKey)) {
+                        if (!overlaidPointSections[forwardKey]) {
+                            overlaidPointSections[forwardKey] = {};
+                            overlaidPointSections[forwardKey]["from"] = [a0, a1];
+                            overlaidPointSections[forwardKey]["to"] = [b0, b1];
+                            overlaidPointSections[forwardKey]["trains"] = 2;
+                        } else {
+                            overlaidPointSections[forwardKey]["trains"] = overlaidPointSections[forwardKey]["trains"] + 1;
+                        }
+                        // filter from unique points
+                        uniquePointSections.filter(key => key == forwardKey);
+                    } else if (uniquePointSections.includes(reverseKey)) {
+                        if (!overlaidPointSections[reverseKey]) {
+                            overlaidPointSections[reverseKey] = {};
+                            overlaidPointSections[reverseKey]["from"] = [b0, b1];
+                            overlaidPointSections[reverseKey]["to"] = [a0, a1];
+                            overlaidPointSections[reverseKey]["trains"] = 2;
+                        } else {
+                            overlaidPointSections[reverseKey]["trains"] = overlaidPointSections[reverseKey]["trains"] + 1;
+                        }
+                        // filter from unique points
+                        uniquePointSections.filter(key => key == reverseKey);
+                    } else {
+                        // add unique point
+                        uniquePointSections.push(forwardKey);
+                    }
+                }
+
+                // Forward traversal
+                let lastCoordinate = null;
+                for (const coordinate of trainAllCoordinates) {
+                    if (lastCoordinate) {
+                        processCoordinatePair(lastCoordinate[0], lastCoordinate[1], coordinate[0], coordinate[1]);
+                    }
+                    lastCoordinate = coordinate;
+                }
+
+                // draw this train's shape
                 const shapeName = ROUTE_PREFIX + tripId;
                 map.addSource(shapeName, {
                     "type": "geojson",
@@ -281,30 +361,28 @@ export function Map() {
                         "id": shapeName
                     }
                 });
-                if (!map.getLayer(shapeName)) {
-                    map.addLayer({
-                        "id": shapeName,
-                        "type": "line",
-                        "source": shapeName,
-                        "layout": {
-                            "visibility": "visible",
-                            "line-join": "round",
-                            "line-cap": "round"
-                        },
-                        "paint": {
-                            "line-opacity": 0.5,
-                            "line-color": "#00c000",
-                            "line-width": 4
-                        }
-                    });
-                }
+                map.addLayer({
+                    "id": shapeName,
+                    "type": "line",
+                    "source": shapeName,
+                    "layout": {
+                        "visibility": "visible",
+                        "line-join": "round",
+                        // "line-cap": "round"
+                    },
+                    "paint": {
+                        "line-opacity": 1.0,
+                        "line-color": "#808080",
+                        "line-width": 2
+                    }
+                });
 
                 const existingElement = document.getElementById(shapeName);
                 if (existingElement) {
                     // delete the existing element
                     existingElement.parentElement.remove();
                 }
-                const menu = document.getElementById("routes_menu");
+                const menu = document.getElementById("train_menu");
                 const listItem = document.createElement("li");
                 const link = document.createElement("a");
                 link.id = shapeName;
@@ -400,6 +478,145 @@ export function Map() {
                 }
             }
 
+            // TODO: sort all coordinates to reduce the amount of lines to draw.
+            // [
+            //      {
+            //          "trains": 1,
+            //          "coordinates": [
+            //              [[a,b], [c,d]],
+            //              [[c,d], [e,f]],
+            //              [[e,f], [g,h]]
+            //              ...
+            //          ]
+            //      },
+            //      {
+            //          "trains": 1,
+            //          "coordinates": [
+            //              [[u,v], [w,x]]
+            //          ]
+            //      },
+            //      {
+            //          "trains": 2,
+            //          "coordinates": [
+            //              [[y,z], [s,t]]
+            //          ]
+            //      }
+            //      ...
+            // ]
+            var unsorted = [];
+            
+            // [
+            //      {
+            //          {
+            //              "trains": 1
+            //              "coordinates": [
+            //                  [[a,b], [c,d]]
+            //              ]
+            //          }
+            //          ...
+            //      }
+            // ]
+            var sortedCoordinates = [];
+            for (const entry in overlaidPointSections) {
+                unsorted.push(
+                    {
+                        "trains": overlaidPointSections[entry]["trains"],
+                        "coordinates": [overlaidPointSections[entry]["from"], overlaidPointSections[entry]["to"]]
+                    }
+                );
+            }
+
+            // for each in unsorted:
+            for (const current of unsorted) {
+                var matched = true;
+                // search sortedCoordinates for matching number of trains on this track
+                if (sortedCoordinates.length > 0) {
+                    for (let i = 0; i < sortedCoordinates.length; i++) {
+                        if (sortedCoordinates[i]["trains"] == current["trains"]) {
+                            // if found:
+                            //      test to see if the coordinates start with last current coordinate
+                            const a = current["coordinates"][current["coordinates"].length - 1][0];
+                            const b = current["coordinates"][current["coordinates"].length - 1][1];
+                            const c = sortedCoordinates[i]["coordinates"][0][0];
+                            const d = sortedCoordinates[i]["coordinates"][0][1];
+                            
+                            const e = current["coordinates"][0][0];
+                            const f = current["coordinates"][0][1];
+                            const g = sortedCoordinates[i]["coordinates"][sortedCoordinates[i]["coordinates"].length - 1][0];
+                            const h = sortedCoordinates[i]["coordinates"][sortedCoordinates[i]["coordinates"].length - 1][1];
+                            //      if it starts with the last current coordinate:
+                            if (a == c && b == d) {
+                                //          append this unsorted coordinate to the start of the sorted coordinate
+                                sortedCoordinates[i]["coordinates"] = [...current["coordinates"], ...sortedCoordinates[i]["coordinates"]];
+                                break;
+                            }
+                            //      if it ends with the first current coordinate:
+                            if (e == g && f == h) {
+                                //          append this unsorted coordinate to the end of the sorted coordinate
+                                sortedCoordinates[i]["coordinates"] = [...sortedCoordinates[i]["coordinates"], ...current["coordinates"]];
+                                break;
+                            }
+                        }
+                        if (i + 1 >= sortedCoordinates.length) {
+                            //      else no matches
+                            //          add to sortedCoordinates with this number of trains as there is no match.
+                            matched = false;
+                        }
+                    }
+                }
+                if (!matched || sortedCoordinates.length === 0) {
+                    //  not found:
+                    //      add to sorted coordinates
+                    sortedCoordinates.push(
+                        {
+                            "trains": current["trains"],
+                            "coordinates": current["coordinates"]
+                        }
+                    );
+                }
+            }
+
+            console.log("Overlays: " + sortedCoordinates.length);
+            for (const obj of sortedCoordinates) {
+                const numberOfTrains = obj["trains"];
+                const coordinates = obj["coordinates"];
+                const shapeName = OVERLAY_PREFIX + String(coordinates.toString());
+                map.addSource(shapeName, {
+                    "type": "geojson",
+                    "data": {
+                        "type": "Feature",
+                        "properties": {},
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": coordinates,
+                        },
+                        "id": shapeName
+                    }
+                });
+                var color = "";
+                for (const capacity in lineColorGradient) {
+                    if (numberOfTrains > capacity) {
+                        color = lineColorGradient[capacity];
+                    }
+                }
+                map.addLayer({
+                    "id": shapeName,
+                    "type": "line",
+                    "source": shapeName,
+                    "layout": {
+                        "visibility": "visible",
+                        "line-join": "round",
+                        // "line-cap": "round"
+                    },
+                    // TODO: use numberOfTrains to generate colour
+                    "paint": {
+                        "line-opacity": 0.5,
+                        "line-color": color,
+                        "line-width": 5
+                    }
+                });
+            }
+
             console.log("[INFO]: Total trains: " + totalTrains);
             console.log("[INFO]: Total trains at stops: " + totalTrainsAtStops);
             console.log("[INFO]: Total trains moving: " + totalTrainsMoving);
@@ -430,8 +647,8 @@ export function Map() {
                             <p id="info_area">Select a stop or train</p>
                         </div>
                         <div className="map_menu">
-                            <h2 className="map_menu_title">Routes</h2>
-                            <ul id="routes_menu" className="pl-4 list-disc"></ul>
+                            <h2 className="map_menu_title">Train</h2>
+                            <ul id="train_menu" className="pl-4 list-disc"></ul>
                         </div>
                     </div>
                 </div>
