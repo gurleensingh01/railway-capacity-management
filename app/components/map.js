@@ -1,31 +1,29 @@
-import { usePathname } from "next/navigation";
 import Link from "next/link";
-import React, { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import React, { useEffect, useRef, useState } from "react";
 import { fetchGTFSData } from "./utils/fetchShapeData";
-import { useTrack } from "./context/TrackContext";
-import "../styles.css";
 import { fetchWeatherData } from "./utils/fetchWeather";
+import { usePathname } from "next/navigation";
+import { useTrack } from "./context/TrackContext";
+
+import "mapbox-gl/dist/mapbox-gl.css";
+import "../styles.css";
 
 export function Map() {
-    // for route names
     const ROUTE_PREFIX = "route_";
-    // for stop names
     const STOP_PREFIX = "stop_";
-    // for train names
     const TRAIN_PREFIX = "train_";
-    // for track overlays
     const OVERLAY_PREFIX = "overlay_";
-    // minimum zoom level for stops
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
+
     // color gradient
-    // number -> # of trains
-    // hex -> the color to use for this capacity
-    
+    // {
+    //      #ofTrains: "colorHex"
+    // }
+
     // use this for prod (or ~80 trains/track):
-    // const lineColorGradient = {
+    // const LINE_COLOR_GRADIENT = {
     //    0: "#00ff00",
     //    10: "#22cc00",
     //    20: "#449900",
@@ -38,7 +36,7 @@ export function Map() {
     //}
     
     // use this for debug (or ~10 trains/track)
-    const lineColorGradient = {
+    const LINE_COLOR_GRADIENT = {
         0: "#00ff00",
         2: "#66ff00",
         4: "#ddff00",
@@ -46,17 +44,19 @@ export function Map() {
         8: "#000000"
     }
 
+    // function to get the color for the # of trains
     function getTrainHightlightColor(trainsIn) {
-        var color = lineColorGradient[Object.keys(lineColorGradient)[0]];
-        for (const capacity in lineColorGradient) {
+        // always at the very least use the first color
+        var color = LINE_COLOR_GRADIENT[Object.keys(LINE_COLOR_GRADIENT)[0]];
+        for (const capacity in LINE_COLOR_GRADIENT) {
             if (trainsIn >= capacity) {
-                color = lineColorGradient[capacity];
+                color = LINE_COLOR_GRADIENT[capacity];
             }
         }
         return color;
     }
     
-    // sorting algorithm for train capacity highlights
+    // sorting function/algorithm for train capacity highlights
     function sortAndMerge(unsortedIn) {
         var sorted = [];
         // for each in unsorted:
@@ -147,18 +147,12 @@ export function Map() {
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
     var isRouteOnExpandedPage = (pathname === "/map");
-    var today = new Date("2025-03-06");
-    today.setHours(17);
-    today.setMinutes(50);
     // TODO: auto-refresh would be nice
     // TODO: mask map https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
-    // var today = new Date();
-    var day = today.getDay();
     // cached weather for stops
     // {
     //      stopId: theData
     // }
-    var stopsWeatherCache = {};
 
     const fetchLatestData = async () => {
         setLoading(true);
@@ -186,7 +180,13 @@ export function Map() {
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
-        let renderedStops = [];
+        // var today = new Date("2025-03-06");
+        // today.setHours(17);
+        // today.setMinutes(50);
+        var today = new Date();
+        var day = today.getDay();
+        var renderedStops = [];
+        var stopsWeatherCache = {};
 
         mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;;
         const map = new mapboxgl.Map({
@@ -500,6 +500,7 @@ export function Map() {
 
 
             // ==================== Add layers to map ==================== //
+
             // [
             //      {
             //          "trains": 1,
