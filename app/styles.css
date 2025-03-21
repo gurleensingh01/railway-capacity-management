@@ -53,22 +53,10 @@ html, body {
     font-weight: bold;
 }
 
-.map_menu_section {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    overflow: scroll;
-    white-space: nowrap;
-}
-
 .map_menu {
     background-color: var(--main-color-dark);
     color: var(--main-color-light);
     border-radius: 16px;
-    overflow: scroll;
-    text-align: left;
-    padding-left: 16px;
-    padding-bottom: 16px;
 }
 
 .map_menu_title {

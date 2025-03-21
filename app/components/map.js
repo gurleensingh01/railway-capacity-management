@@ -14,8 +14,33 @@ export function Map() {
     const STOP_PREFIX = "stop_";
     const TRAIN_PREFIX = "train_";
     const OVERLAY_PREFIX = "overlay_";
+    const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
+    const DAYS = {
+        0: "Sunday",
+        1: "Monday",
+        2: "Tuesday",
+        3: "Wednesday",
+        4: "Thursday",
+        5: "Friday",
+        6: "Saturday"
+    }
+    
+    const MONTHS = {
+        0: "Jan",
+        1: "Feb",
+        2: "Mar",
+        3: "Apr",
+        4: "May",
+        5: "Jun",
+        6: "Jul",
+        7: "Aug",
+        8: "Sep",
+        9: "Oct",
+        10: "Nov",
+        11: "Dec"
+    }
 
     // color gradient
     // {
@@ -149,10 +174,6 @@ export function Map() {
     var isRouteOnExpandedPage = (pathname === "/map");
     // TODO: auto-refresh would be nice
     // TODO: mask map https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
-    // cached weather for stops
-    // {
-    //      stopId: theData
-    // }
 
     const fetchLatestData = async () => {
         setLoading(true);
@@ -186,6 +207,10 @@ export function Map() {
         var today = new Date();
         var day = today.getDay();
         var renderedStops = [];
+        // cached weather for stops
+        // {
+        //      stopId: weatherData
+        // }
         var stopsWeatherCache = {};
 
         mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;;
@@ -463,19 +488,21 @@ export function Map() {
                 link.className = "map_menu_item_active";
 
                 link.onclick = function (e) {
-                    const shapeLayer = ROUTE_PREFIX + this.textContent;
+                    // const shapeLayer = ROUTE_PREFIX + this.textContent;
                     const trainLayer = TRAIN_PREFIX + this.textContent;
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const shapeVisibility = map.getLayoutProperty(shapeLayer, "visibility");
+                    // routes are not rendered anymore
+                    // const shapeVisibility = map.getLayoutProperty(shapeLayer, "visibility");
                     const trainVisibility = map.getLayoutProperty(trainLayer, "visibility");
-                    if (shapeVisibility === "visible" && trainVisibility === "visible") {
-                        map.setLayoutProperty(shapeLayer, "visibility", "none");
+                    // if (shapeVisibility === "visible" && trainVisibility === "visible") {
+                    if (trainVisibility === "visible") {
+                        // map.setLayoutProperty(shapeLayer, "visibility", "none");
                         map.setLayoutProperty(trainLayer, "visibility", "none");
                         this.className = "map_menu_item_inactive";
                     } else {
-                        map.setLayoutProperty(shapeLayer, "visibility", "visible");
+                        // map.setLayoutProperty(shapeLayer, "visibility", "visible");
                         map.setLayoutProperty(trainLayer, "visibility", "visible");
                         this.className = "map_menu_item_active";
                     }
@@ -713,7 +740,7 @@ export function Map() {
                                 innerHtml = "<b>Stop ID</b><br>" + stopId;
                                 innerHtml += "<br><br>"
                                 innerHtml += "<b>Current Weather</b><br>";
-                                innerHtml += "Loading weather...";
+                                innerHtml += WEATHER_LOADING_PLACEHOLDER;
                                 infoArea.innerHTML = innerHtml;
 
                                 var weather = null;
@@ -721,9 +748,27 @@ export function Map() {
                                     weather = stopsWeatherCache[stopName];
                                 } else {
                                     weather = await fetchWeatherData(stopCoordinates[1], stopCoordinates[0]);
-                                    stopsWeatherCache[stopName] = weather;
+                                    stopsWeatherCache[stopName] = weather
                                 }
-                                innerHtml = innerHtml.replace("Loading weather...", weather.temperature + "°C, " + weather.description);
+                                if (weather !== null) {
+                                    var weatherString = weather["now"]["desc"] + "<br>";
+                                    weatherString += weather["now"]["temp"] + "°C";
+                                    weatherString += "<br><br>";
+                                    weatherString += "<b>Forecast</b><br>";
+                                    for (let i = 0; i < 14; i++) {
+                                        const ref = weather[`${i}`];
+                                        const d = new Date(ref["date"]);
+                                        const theDay = d.getDay();
+                                        const theMonth = d.getMonth();
+                                        const theDate = d.getDate();
+                                        weatherString += "&#8226; " + DAYS[theDay] + ", " + MONTHS[theMonth] + " " + theDate + "<br>";
+                                        weatherString += "&nbsp;&nbsp;&nbsp;&nbsp;" + ref["desc"] + "<br>";
+                                        weatherString += "&nbsp;&nbsp;&nbsp;&nbsp;" + ref["avgtemp"] + "°C (" + ref["maxtemp"] + "°C | " + ref["mintemp"] + "°C)<br><br>";
+                                    }
+                                    innerHtml = innerHtml.replace(WEATHER_LOADING_PLACEHOLDER, weatherString);
+                                } else {
+                                    innerHtml = innerHtml.replace(WEATHER_LOADING_PLACEHOLDER, "Could not get weather data.");
+                                }
                                 infoArea.innerHTML = innerHtml;
                             }
                         });
@@ -761,30 +806,30 @@ export function Map() {
                     }
                     <div className="size-full flex flex-row justify-between ml-1">
                         <div className="text-left">
-                            <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
-                                {loading ? "Fetching Data..." : "Fetch Latest Data"}
-                            </Link>
-                        </div>
-                        <div className="text-right">
                             {!isRouteOnExpandedPage &&
                                 <Link className="dark_button_mini" href="/map">Expand Map</Link>
                             }
+                        </div>
+                        <div className="text-right">
+                            <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
+                                {loading ? "Fetching Data..." : "Fetch Latest Data"}
+                            </Link>
                         </div>
                     </div>
                 </div>
                 <div id="map" ref={mapContainerRef} className="size-full"></div>
             </div>
-            <div className="h-full min-w-[208px] w-1/8 map_menu_section">
-                <div className="h-1/2 w-full map_menu">
+            <div className="h-full min-w-[208px] w-1/8 flex flex-col gap-4">
+                <div className="flex flex-col w-full max-h-1/2 h-1/2 map_menu text-left p-4 pt-0 overflow-hidden">
                     <h2 className="map_menu_title">Info</h2>
-                    <p id="info_area">
+                    <p id="info_area" className="overflow-scroll">
                         Click on a stop or train <br/>
                         to view its information.
                     </p>
                 </div>
-                <div className="h-1/2 w-full map_menu">
+                <div className="flex flex-col w-full max-h-1/2 h-1/2 map_menu text-left p-4 pt-0 overflow-hidden">
                     <h2 className="map_menu_title">Train</h2>
-                    <ul id="train_menu" className="pl-4 list-disc"></ul>
+                    <ul id="train_menu" className="overflow-scroll pl-4 list-disc"></ul>
                 </div>
             </div>
         </div>

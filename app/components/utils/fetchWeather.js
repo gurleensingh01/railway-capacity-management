@@ -5,7 +5,7 @@ export const fetchWeatherData = async (lat, lon) => {
         return null;
     }
 
-    const url = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${lat},${lon}`;
+    const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${lon}&days=14`;
 
     try {
         console.log("Fetching weather from:", url);
@@ -21,13 +21,21 @@ export const fetchWeatherData = async (lat, lon) => {
             console.error("No weather data received for:", lat, lon);
             return null;
         }
+        
+        var out = {};
+        out["now"] = {};
+        out["now"]["temp"] = data["current"]["temp_c"];
+        out["now"]["desc"] = data["current"]["condition"]["text"];
+        for (let i = 0; i < 14; i++) {
+            out[`${i}`] = {};
+            out[`${i}`]["date"] = data["forecast"]["forecastday"][i]["date"];
+            out[`${i}`]["maxtemp"] = data["forecast"]["forecastday"][i]["day"]["maxtemp_c"];
+            out[`${i}`]["mintemp"] = data["forecast"]["forecastday"][i]["day"]["mintemp_c"];
+            out[`${i}`]["avgtemp"] = data["forecast"]["forecastday"][i]["day"]["avgtemp_c"];
+            out[`${i}`]["desc"] = data["forecast"]["forecastday"][i]["day"]["condition"]["text"];
+        }
 
-        return {
-            temperature: data.current.temp_c,  // Temperature in Celsius
-            description: data.current.condition.text,
-            windSpeed: data.current.wind_kph,
-            icon: data.current.condition.icon  // Weather icon
-        };
+        return out;
     } catch (error) {
         console.error("Fetch error:", error);
         return null;

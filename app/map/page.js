@@ -44,7 +44,7 @@ export default function DashboardPage() {
       
       {/* Main Content */}
       <div className="size-full flex flex-col p-4">
-        <div className="p-4 pt-1">
+        <div className="p-4 pt-1 mb-[-32]">
           <h1 className="int_title">Railway Map</h1>
           <h2 className="int_subtitle">{userLocation}</h2>
         </div>
