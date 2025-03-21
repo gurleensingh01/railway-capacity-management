@@ -13,24 +13,21 @@ export function KPI() {
     const gaugeValue = selectedTrack ? tripCounts[selectedTrack] || 0 : 0;
 
     return (
-        <div className="h-full w-full flex flex-row space-x-4 justify-stretch">
-            <div className="h-full w-full flex flex-col justify-center text-center">
-                {!pathname.includes("/stats") && <h1 className="int_label text-left">Capacity %</h1>}
-                <div className="content_background h-full w-full flex flex-col justify-center text-center">
-                    <Gauge
-                        height={150}
-                        value={gaugeValue}
-                        valueMax={100}  // Adjust this based on typical max trip count
-                        startAngle={-90}
-                        endAngle={90}
-                        cornerRadius="50%"
-                        sx={{
-                            [`& .${gaugeClasses.valueText}`]: { fontSize: 16 },
-                            [`& .${gaugeClasses.valueArc}`]: { fill: '#ffffff' },
-                        }}
-                    />
-                    {selectedTrack && <p className="mt-2 text-white">Selected Track: {selectedTrack}</p>}
-                </div>
+        <div className="size-full flex flex-col">
+            {!pathname.includes("/stats") && <h1 className="int_label whitespace-nowrap text-left">Capacity %</h1>}
+            <div className="size-full content_background flex flex-col">
+                <Gauge
+                    value={gaugeValue}
+                    valueMax={100}  // Adjust this based on typical max trip count
+                    startAngle={-90}
+                    endAngle={90}
+                    cornerRadius="50%"
+                    sx={{
+                        [`& .${gaugeClasses.valueText}`]: { fontSize: 16 },
+                        [`& .${gaugeClasses.valueArc}`]: { fill: '#ffffff' },
+                    }}
+                />
+                {selectedTrack && <p className="mt-2 text-white">Selected Track: {selectedTrack}</p>}
             </div>
         </div>
     );

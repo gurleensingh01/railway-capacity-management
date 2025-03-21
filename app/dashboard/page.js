@@ -46,26 +46,26 @@ export default function DashboardPage() {
     return <p className="text-center text-lg font-bold">Redirecting to sign in...</p>;
   }
 
-  return (
-    <div className="int_main_container">
-      <Sidebar />
-      
-      {/* Main Content */}
-      <div className="flex flex-col h-full w-full justify-stretch p-4">
-        <div className="p-4 pt-1 mb-4 mt-0">
-          <h1 className="int_title">Good {greeting}!</h1>
-          <h2 className="int_subtitle">Here is your overview for {userLocation}.</h2>
-        </div>
+    return (
+        <div className="size-full int_main_container">
+            <Sidebar/>
 
-        <div className="flex flex-col h-full w-full">
-          <div className="h-40 flex-auto">
-            <Map />
-          </div>
-          <div className="h-10 flex-auto mt-6">
-            <KPI />
-          </div>
+            {/* Main Content */}
+            <div className="size-full flex flex-col p-4">
+                <div className="p-4">
+                    <h1 className="int_title">Good {greeting}!</h1>
+                    <h2 className="int_subtitle">Here is your overview for {userLocation}.</h2>
+                </div>
+
+                <div className="size-full flex flex-col gap-2">
+                    <div className="h-5/6 w-full">
+                        <Map/>
+                    </div>
+                    <div className="h-1/6 w-full">
+                        <KPI/>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

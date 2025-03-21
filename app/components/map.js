@@ -753,32 +753,38 @@ export function Map() {
     }, [trains, stops, stopTimes]);
 
     return (
-        <div className="h-full w-full flex-auto flex flex-col justify-center text-center">
-            {!isRouteOnExpandedPage &&
-                <div className="w-full flex flex-row justify-between text-center">
-                    <h3 className="int_label">Railway Map</h3>
-                    <Link className="dark_button_mini pl-2 pr-2 pt-1 pb-1 mb-1" href="/map">Expand Map</Link>
-                </div>
-            }
-            <div className="h-full w-full flex flex-col justify-center">
-                <button onClick={fetchLatestData} className="px-4 py-2 dark_button mb-1 font-semibold shadow" disabled={loading}>
-                    {loading ? "Fetching Data..." : "Fetch Latest Data"}
-                </button>
-                <div className="map_section">
-                    <div id="map" ref={mapContainerRef} className="w-5/7 flex-auto"></div>
-                    <div className="map_menu_section">
-                        <div className="map_menu">
-                            <h2 className="map_menu_title">Info</h2>
-                            <p id="info_area">
-                                Click on a stop or train <br/>
-                                to view its information.
-                            </p>
+        <div className="size-full flex flex-row gap-4">
+            <div className="size-full flex flex-col w-7/8">
+                <div className="w-full flex flex-row gap-1 mb-1">
+                    {!isRouteOnExpandedPage &&
+                        <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
+                    }
+                    <div className="size-full flex flex-row justify-between ml-1">
+                        <div className="text-left">
+                            <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
+                                {loading ? "Fetching Data..." : "Fetch Latest Data"}
+                            </Link>
                         </div>
-                        <div className="map_menu">
-                            <h2 className="map_menu_title">Train</h2>
-                            <ul id="train_menu" className="pl-4 list-disc"></ul>
+                        <div className="text-right">
+                            {!isRouteOnExpandedPage &&
+                                <Link className="dark_button_mini" href="/map">Expand Map</Link>
+                            }
                         </div>
                     </div>
+                </div>
+                <div id="map" ref={mapContainerRef} className="size-full"></div>
+            </div>
+            <div className="h-full min-w-[208px] w-1/8 map_menu_section">
+                <div className="h-1/2 w-full map_menu">
+                    <h2 className="map_menu_title">Info</h2>
+                    <p id="info_area">
+                        Click on a stop or train <br/>
+                        to view its information.
+                    </p>
+                </div>
+                <div className="h-1/2 w-full map_menu">
+                    <h2 className="map_menu_title">Train</h2>
+                    <ul id="train_menu" className="pl-4 list-disc"></ul>
                 </div>
             </div>
         </div>
