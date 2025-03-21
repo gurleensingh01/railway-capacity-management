@@ -14,9 +14,12 @@ export function Map() {
     const STOP_PREFIX = "stop_";
     const TRAIN_PREFIX = "train_";
     const OVERLAY_PREFIX = "overlay_";
+    const TRAIN_LOCATOR_SUFFIX = "_locator";
+    const TRAIN_TOGGLE_SUFFIX = "_toggle";
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
+    const FLY_TO_ZOOM = 11.5;
     const DAYS = {
         0: "Sunday",
         1: "Monday",
@@ -173,7 +176,11 @@ export function Map() {
     const { setSelectedTrack } = useTrack(); // Track selection context
     var isRouteOnExpandedPage = (pathname === "/map");
     // TODO: auto-refresh would be nice
-    // TODO: mask map https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
+    // TODO: mask map
+    // Tutorial:
+    // https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
+    // draw coordinates:
+    // https://maps.co/gis/
 
     const fetchLatestData = async () => {
         setLoading(true);
@@ -188,8 +195,6 @@ export function Map() {
         if (lastZoom === 0.0) setLastZoom(MINIMUM_ZOOM_FOR_STOP_VISIBILITY);
         // TODO: automatically find center
         if (!lastCenter) setLastCenter([-79.38032, 43.64481]);
-
-        setLoading(false);
     };
 
 
@@ -440,10 +445,10 @@ export function Map() {
                     lastCoordinate = coordinate;
                 }
 
-                const shapeName = ROUTE_PREFIX + tripId;
                 // this is now redundant, since traffic is always above the shape
                 // kept in code in case we want it later
                 // - draw this train's shape
+                // const shapeName = ROUTE_PREFIX + tripId;
                 // map.addSource(shapeName, {
                 //     "type": "geojson",
                 //     "data": {
@@ -473,44 +478,66 @@ export function Map() {
                 //     }
                 // });
 
-                // delete existing element if exists
-                const existingElement = document.getElementById(shapeName);
-                if (existingElement) {
-                    existingElement.parentElement.remove();
-                }
-                // add element for train toggle
-                const menu = document.getElementById("train_menu");
-                const listItem = document.createElement("li");
-                const link = document.createElement("a");
-                link.id = shapeName;
-                link.href = "#";
-                link.textContent = tripId;
-                link.className = "map_menu_item_active";
+                // delete existing elements if they exist
+                const trainDivId = tripId + "_menu_div";
+                if (document.getElementById(trainDivId)) document.getElementById(trainDivId).remove();
 
-                link.onclick = function (e) {
-                    // const shapeLayer = ROUTE_PREFIX + this.textContent;
-                    const trainLayer = TRAIN_PREFIX + this.textContent;
+                const coord0 = String(trainShapesToRender[tripId]["coordinates"][0]);
+                const coord1 = String(trainShapesToRender[tripId]["coordinates"][1]);
+                const locatorLinkId = coord0 + "," + coord1 + TRAIN_LOCATOR_SUFFIX;
+                const toggleLinkId = tripId + TRAIN_TOGGLE_SUFFIX;
+
+                // add elements for train
+                const menu = document.getElementById("train_menu");
+
+                // element div
+                const trainLink = document.createElement("div");
+                trainLink.id = trainDivId;
+                trainLink.className = "space-full flex flex-row justify-between";
+
+                // locator element
+                const locatorLink = document.createElement("a");
+                locatorLink.id = locatorLinkId;
+                locatorLink.href = "#";
+                locatorLink.textContent = tripId;
+                locatorLink.className = "map_menu_item_active";
+                
+                locatorLink.onclick = function (e) {
+                    const location = this.id.replace(TRAIN_LOCATOR_SUFFIX, "").split(",");
+                    const coordinates = [parseFloat(location[0]), parseFloat(location[1])];
+                    e.preventDefault();
+                    e.stopPropagation();
+                    map.flyTo({ "center": coordinates, "zoom": FLY_TO_ZOOM, "essential": true });
+                };
+
+                // toggle element
+                const toggleLink = document.createElement("a");
+                toggleLink.id = toggleLinkId;
+                toggleLink.href = "#";
+                toggleLink.textContent = "Hide";
+                toggleLink.className = "map_menu_item_active";
+
+                toggleLink.onclick = function (e) {
+                    const trainLayer = TRAIN_PREFIX + this.id.replace(TRAIN_TOGGLE_SUFFIX, "");
                     e.preventDefault();
                     e.stopPropagation();
 
-                    // routes are not rendered anymore
-                    // const shapeVisibility = map.getLayoutProperty(shapeLayer, "visibility");
                     const trainVisibility = map.getLayoutProperty(trainLayer, "visibility");
-                    // if (shapeVisibility === "visible" && trainVisibility === "visible") {
                     if (trainVisibility === "visible") {
-                        // map.setLayoutProperty(shapeLayer, "visibility", "none");
                         map.setLayoutProperty(trainLayer, "visibility", "none");
                         this.className = "map_menu_item_inactive";
+                        toggleLink.textContent = "Show";
                     } else {
-                        // map.setLayoutProperty(shapeLayer, "visibility", "visible");
                         map.setLayoutProperty(trainLayer, "visibility", "visible");
                         this.className = "map_menu_item_active";
+                        toggleLink.textContent = "Hide";
                     }
                 };
 
-                // add the item to the routes list
-                listItem.appendChild(link);
-                menu.appendChild(listItem);
+                // add the element to the routes list
+                trainLink.appendChild(locatorLink);
+                trainLink.appendChild(toggleLink);
+                menu.appendChild(trainLink);
 
                 // ===================== Add Railway Stops ===================== //
                 const numberOfStops = Object.keys(stopTimes[tripId]);
@@ -677,7 +704,7 @@ export function Map() {
                             type: "click",
                             target: { layerId: trainName },
                             handler: async ({ feature }) => {
-                                console.log("[DEBUG]: Mouse entered train: " + trainName.replace(TRAIN_PREFIX, ""));
+                                console.log("[DEBUG]: Clicked train: " + trainName.replace(TRAIN_PREFIX, ""));
                                 const infoArea = document.getElementById("info_area");
                                 var innerHtml = "";
                                 innerHtml += "<b>Train ID</b><br>" + trainName.replace(TRAIN_PREFIX, "");
@@ -734,15 +761,35 @@ export function Map() {
                             type: "click",
                             target: { layerId: stopName },
                             handler: async ({ feature }) => {
-                                console.log("[DEBUG]: Mouse entered stop: " + stopId);
+                                console.log("[DEBUG]: Clicked stop: " + stopId);
+                                
+                                // clear the info area
                                 const infoArea = document.getElementById("info_area");
-                                var innerHtml = "";
-                                innerHtml = "<b>Stop ID</b><br>" + stopId;
-                                innerHtml += "<br><br>"
-                                innerHtml += "<b>Current Weather</b><br>";
-                                innerHtml += WEATHER_LOADING_PLACEHOLDER;
-                                infoArea.innerHTML = innerHtml;
+                                infoArea.innerHTML = "";
 
+                                // new element for weather
+                                const stopInfoDiv = document.createElement("div");
+                                stopInfoDiv.id = STOP_PREFIX + stopId + "_menu_div";
+
+                                // new element for stop info
+                                const stopInfoConstant = document.createElement("p");
+                                stopInfoConstant.id = STOP_PREFIX + stopId + "_menu_p_constant";
+                                var constantInfoStringBuilder = "";
+                                constantInfoStringBuilder = "<b>Stop ID</b><br>" + stopId;
+                                constantInfoStringBuilder += "<br><br>"
+                                constantInfoStringBuilder += "<b>Current Weather</b><br>";
+                                stopInfoConstant.innerHTML = constantInfoStringBuilder;
+                                
+                                // new element for stop weather info
+                                const stopInfoWeather = document.createElement("div");
+                                stopInfoWeather.innerHTML = WEATHER_LOADING_PLACEHOLDER;
+                                
+                                // update the div with current display before attempting to load weather
+                                stopInfoDiv.appendChild(stopInfoConstant);
+                                stopInfoDiv.appendChild(stopInfoWeather);
+                                infoArea.appendChild(stopInfoDiv);
+                                
+                                // now we load the weather
                                 var weather = null;
                                 if (stopsWeatherCache[stopName]) {
                                     weather = stopsWeatherCache[stopName];
@@ -751,25 +798,90 @@ export function Map() {
                                     stopsWeatherCache[stopName] = weather
                                 }
                                 if (weather !== null) {
-                                    var weatherString = weather["now"]["desc"] + "<br>";
-                                    weatherString += weather["now"]["temp"] + "°C";
-                                    weatherString += "<br><br>";
-                                    weatherString += "<b>Forecast</b><br>";
+                                    // div for current conditions
+                                    const nowDiv = document.createElement("div");
+                                    nowDiv.className = "w-full flex flex-row justify-left text-left items-start align-start";
+                                    
+                                    // current conditions
+                                    // icon
+                                    const nowIconImg = document.createElement("img");
+                                    nowIconImg.src = weather["now"]["icon"];
+                                    nowIconImg.width = 32;
+                                    nowIconImg.height = 32;
+                                    nowIconImg.className = "size-fit grow-0 shrink-0"
+                                    // text
+                                    const nowTextDiv = document.createElement("div");
+                                    nowTextDiv.className = "flex flex-col justify-left text-left items-center align-center";
+                                    const nowTempP = document.createElement("p");
+                                    nowTempP.innerHTML = "<b>" + weather["now"]["temp"] + "°C" +"</b><br>" + weather["now"]["desc"];
+                                    nowTempP.className = "flex flex-col justify-left text-left whitespace-wrap overflow-hidden";
+
+                                    // forecast conditions
+                                    // title
+                                    const forecastP = document.createElement("p");
+                                    forecastP.innerHTML = "<b>Forecast</b><br>";
+
+                                    // div
+                                    const forecastDiv = document.createElement("div");
+                                    forecastDiv.className = "w-full flex flex-col gap-4";
+
+                                    // forecast conditions
                                     for (let i = 0; i < 14; i++) {
                                         const ref = weather[`${i}`];
                                         const d = new Date(ref["date"]);
                                         const theDay = d.getDay();
                                         const theMonth = d.getMonth();
                                         const theDate = d.getDate();
-                                        weatherString += "&#8226; " + DAYS[theDay] + ", " + MONTHS[theMonth] + " " + theDate + "<br>";
-                                        weatherString += "&nbsp;&nbsp;&nbsp;&nbsp;" + ref["desc"] + "<br>";
-                                        weatherString += "&nbsp;&nbsp;&nbsp;&nbsp;" + ref["avgtemp"] + "°C (" + ref["maxtemp"] + "°C | " + ref["mintemp"] + "°C)<br><br>";
+                                        // div
+                                        const forecastDay = document.createElement("div");
+                                        forecastDay.className = "w-full flex flex-col justify-left text-left";
+                                        // date title
+                                        const forecastDayDateP = document.createElement("p");
+                                        forecastDayDateP.innerHTML = DAYS[theDay] + ", " + MONTHS[theMonth] + " " + theDate;
+                                        // content
+                                        const forecastDayContentDiv = document.createElement("div");
+                                        forecastDayContentDiv.className = "w-full flex flex-row";
+                                        // icon
+                                        const forecastDayIconImg = document.createElement("img");
+                                        forecastDayIconImg.src = ref["icon"];
+                                        forecastDayIconImg.width = 24;
+                                        forecastDayIconImg.height = 24;
+                                        forecastDayIconImg.className = "size-fit grow-0 shrink-0";
+                                        // text
+                                        const forecastDayTextDiv = document.createElement("div");
+                                        forecastDayTextDiv.className = "flex flex-col justify-left text-left items-center align-center";
+                                        const forecastDayTextTempP = document.createElement("p");
+                                        var forecastDayTextTempPInnerHtml = "";
+                                        forecastDayTextTempPInnerHtml += "<b>" + ref["avgtemp"] + "°C</b><br>";
+                                        forecastDayTextTempPInnerHtml += "Hi: " + ref["maxtemp"] + "°C<br>"
+                                        forecastDayTextTempPInnerHtml += "Lo: " + ref["mintemp"] + "°C<br>";
+                                        forecastDayTextTempPInnerHtml += ref["desc"];
+                                        forecastDayTextTempP.innerHTML = forecastDayTextTempPInnerHtml
+                                        forecastDayTextTempP.className = "flex flex-col justify-left text-left whitespace-wrap overflow-hidden";
+                                        
+                                        // append
+                                        forecastDayTextDiv.appendChild(forecastDayTextTempP);
+                                        forecastDayContentDiv.appendChild(forecastDayIconImg);
+                                        forecastDayContentDiv.appendChild(forecastDayTextDiv);
+                                        forecastDay.appendChild(forecastDayDateP);
+                                        forecastDay.appendChild(forecastDayContentDiv);
+                                        forecastDiv.appendChild(forecastDay);
                                     }
-                                    innerHtml = innerHtml.replace(WEATHER_LOADING_PLACEHOLDER, weatherString);
+
+                                    // replace placeholder with what we have now
+                                    // append current
+                                    nowTextDiv.appendChild(nowTempP);
+                                    nowDiv.appendChild(nowIconImg);
+                                    nowDiv.appendChild(nowTextDiv);
+                                    
+                                    // replace
+                                    stopInfoWeather.innerHTML = "";
+                                    stopInfoWeather.appendChild(nowDiv);
+                                    stopInfoWeather.appendChild(forecastP);
+                                    stopInfoWeather.appendChild(forecastDiv);
                                 } else {
                                     innerHtml = innerHtml.replace(WEATHER_LOADING_PLACEHOLDER, "Could not get weather data.");
                                 }
-                                infoArea.innerHTML = innerHtml;
                             }
                         });
                     }
@@ -790,6 +902,7 @@ export function Map() {
             console.log("[INFO]: Total trains: " + totalTrains);
             console.log("[INFO]: Total trains at stops: " + totalTrainsAtStops);
             console.log("[INFO]: Total trains moving: " + totalTrainsMoving);
+            setLoading(false);
         });
 
         // ==================== on map idle loop ==================== //
@@ -829,7 +942,8 @@ export function Map() {
                 </div>
                 <div className="flex flex-col w-full max-h-1/2 h-1/2 map_menu text-left p-4 pt-0 overflow-hidden">
                     <h2 className="map_menu_title">Train</h2>
-                    <ul id="train_menu" className="overflow-scroll pl-4 list-disc"></ul>
+                    <div id="train_menu" className="flex flex-col gap-1 overflow-scroll p-1 list-disc">
+                    </div>
                 </div>
             </div>
         </div>

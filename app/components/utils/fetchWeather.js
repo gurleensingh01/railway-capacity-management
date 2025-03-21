@@ -26,6 +26,7 @@ export const fetchWeatherData = async (lat, lon) => {
         out["now"] = {};
         out["now"]["temp"] = data["current"]["temp_c"];
         out["now"]["desc"] = data["current"]["condition"]["text"];
+        out["now"]["icon"] = data["current"]["condition"]["icon"];
         for (let i = 0; i < 14; i++) {
             out[`${i}`] = {};
             out[`${i}`]["date"] = data["forecast"]["forecastday"][i]["date"];
@@ -33,6 +34,7 @@ export const fetchWeatherData = async (lat, lon) => {
             out[`${i}`]["mintemp"] = data["forecast"]["forecastday"][i]["day"]["mintemp_c"];
             out[`${i}`]["avgtemp"] = data["forecast"]["forecastday"][i]["day"]["avgtemp_c"];
             out[`${i}`]["desc"] = data["forecast"]["forecastday"][i]["day"]["condition"]["text"];
+            out[`${i}`]["icon"] = data["forecast"]["forecastday"][i]["day"]["condition"]["icon"];
         }
 
         return out;
