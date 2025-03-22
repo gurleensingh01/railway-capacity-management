@@ -17,6 +17,7 @@ export function Map() {
     const TRAIN_LOCATOR_SUFFIX = "_locator";
     const TRAIN_TOGGLE_SUFFIX = "_toggle";
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
+    const WEATHER_FAILED_TEXT = "Could not get weather data.";
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
     const FLY_TO_ZOOM = 11.5;
@@ -67,7 +68,7 @@ export function Map() {
     const LINE_COLOR_GRADIENT = {
         0: "#00ff00",
         2: "#66ff00",
-        4: "#ddff00",
+        4: "#ffee00",
         6: "#ff2200",
         8: "#000000"
     }
@@ -503,10 +504,24 @@ export function Map() {
                 locatorLink.className = "map_menu_item_active";
                 
                 locatorLink.onclick = function (e) {
-                    const location = this.id.replace(TRAIN_LOCATOR_SUFFIX, "").split(",");
-                    const coordinates = [parseFloat(location[0]), parseFloat(location[1])];
                     e.preventDefault();
                     e.stopPropagation();
+
+                    const location = this.id.replace(TRAIN_LOCATOR_SUFFIX, "").split(",");
+                    const coordinates = [parseFloat(location[0]), parseFloat(location[1])];
+                    const trainId = this.textContent;
+
+                    // update info area
+                    const infoArea = document.getElementById("info_area");
+                    var innerHtml = "";
+                    innerHtml += "<b>Train ID</b><br>" + trainId;
+                    innerHtml += "<br><br>"
+                    innerHtml += "<b>Location</b><br>" + "Lon: " + location[0] + "<br>" + "Lat: " + location[1];
+                    innerHtml += "<br><br>"
+                    innerHtml += "<b>Status</b><br>" + (trainShapesToRender[trainId]["isMoving"] ? "Enroute to next station" : "Stopped at station");
+                    infoArea.innerHTML = innerHtml;
+
+                    // fly to train
                     map.flyTo({ "center": coordinates, "zoom": FLY_TO_ZOOM, "essential": true });
                 };
 
@@ -800,21 +815,24 @@ export function Map() {
                                 if (weather !== null) {
                                     // div for current conditions
                                     const nowDiv = document.createElement("div");
-                                    nowDiv.className = "w-full flex flex-row justify-left text-left items-start align-start";
-                                    
-                                    // current conditions
+                                    nowDiv.className = "w-full flex flex-row gap-2 justify-left text-left place-content-center mb-[8px]";
+
                                     // icon
                                     const nowIconImg = document.createElement("img");
                                     nowIconImg.src = weather["now"]["icon"];
                                     nowIconImg.width = 32;
                                     nowIconImg.height = 32;
-                                    nowIconImg.className = "size-fit grow-0 shrink-0"
+                                    nowIconImg.className = "size-fit flex flex-row justify-left text-left place-content-center grow-0 shrink-0"
+
                                     // text
                                     const nowTextDiv = document.createElement("div");
-                                    nowTextDiv.className = "flex flex-col justify-left text-left items-center align-center";
+                                    nowTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center whitespace-wrap overflow-hidden mt-[-10px]";
                                     const nowTempP = document.createElement("p");
-                                    nowTempP.innerHTML = "<b>" + weather["now"]["temp"] + "°C" +"</b><br>" + weather["now"]["desc"];
-                                    nowTempP.className = "flex flex-col justify-left text-left whitespace-wrap overflow-hidden";
+                                    nowTempP.innerHTML = "<b>" + weather["now"]["temp"] + "</b>" + "<sup>°C</sup>";
+                                    nowTempP.className = "w-full text-right text-[24px]";
+                                    const nowDescP = document.createElement("p");
+                                    nowDescP.textContent = weather["now"]["desc"];
+                                    nowDescP.className = "w-full text-right text-[12px] mt-[-8px]";
 
                                     // forecast conditions
                                     // title
@@ -823,7 +841,7 @@ export function Map() {
 
                                     // div
                                     const forecastDiv = document.createElement("div");
-                                    forecastDiv.className = "w-full flex flex-col gap-4";
+                                    forecastDiv.className = "w-full flex flex-col gap-6";
 
                                     // forecast conditions
                                     for (let i = 0; i < 14; i++) {
@@ -832,35 +850,42 @@ export function Map() {
                                         const theDay = d.getDay();
                                         const theMonth = d.getMonth();
                                         const theDate = d.getDate();
-                                        // div
+
+                                        // this entire forecast's div
                                         const forecastDay = document.createElement("div");
                                         forecastDay.className = "w-full flex flex-col justify-left text-left";
+
                                         // date title
                                         const forecastDayDateP = document.createElement("p");
                                         forecastDayDateP.innerHTML = DAYS[theDay] + ", " + MONTHS[theMonth] + " " + theDate;
-                                        // content
+
+                                        // forecast content
                                         const forecastDayContentDiv = document.createElement("div");
                                         forecastDayContentDiv.className = "w-full flex flex-row";
+
                                         // icon
                                         const forecastDayIconImg = document.createElement("img");
                                         forecastDayIconImg.src = ref["icon"];
-                                        forecastDayIconImg.width = 24;
-                                        forecastDayIconImg.height = 24;
-                                        forecastDayIconImg.className = "size-fit grow-0 shrink-0";
+                                        forecastDayIconImg.width = 20;
+                                        forecastDayIconImg.height = 20;
+                                        forecastDayIconImg.className = "size-fit flex flex-row justify-left text-left place-content-center grow-0 shrink-0";
+
                                         // text
                                         const forecastDayTextDiv = document.createElement("div");
-                                        forecastDayTextDiv.className = "flex flex-col justify-left text-left items-center align-center";
+                                        forecastDayTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center whitespace-wrap overflow-hidden";
                                         const forecastDayTextTempP = document.createElement("p");
                                         var forecastDayTextTempPInnerHtml = "";
-                                        forecastDayTextTempPInnerHtml += "<b>" + ref["avgtemp"] + "°C</b><br>";
-                                        forecastDayTextTempPInnerHtml += "Hi: " + ref["maxtemp"] + "°C<br>"
-                                        forecastDayTextTempPInnerHtml += "Lo: " + ref["mintemp"] + "°C<br>";
-                                        forecastDayTextTempPInnerHtml += ref["desc"];
-                                        forecastDayTextTempP.innerHTML = forecastDayTextTempPInnerHtml
-                                        forecastDayTextTempP.className = "flex flex-col justify-left text-left whitespace-wrap overflow-hidden";
+                                        forecastDayTextTempPInnerHtml += ref["mintemp"] + "<sup>°C</sup> / ";
+                                        forecastDayTextTempPInnerHtml += "<b>" + ref["maxtemp"] + "</b><sup>°C</sup>"
+                                        forecastDayTextTempP.innerHTML = forecastDayTextTempPInnerHtml;
+                                        forecastDayTextTempP.className = "w-full text-right text-[24px]";
+                                        const forecastDayTextDescP = document.createElement("p");
+                                        forecastDayTextDescP.textContent = ref["desc"];
+                                        forecastDayTextDescP.className = "h-fit w-full text-right text-[12px] mt-[-8px]";
                                         
                                         // append
                                         forecastDayTextDiv.appendChild(forecastDayTextTempP);
+                                        forecastDayTextDiv.appendChild(forecastDayTextDescP);
                                         forecastDayContentDiv.appendChild(forecastDayIconImg);
                                         forecastDayContentDiv.appendChild(forecastDayTextDiv);
                                         forecastDay.appendChild(forecastDayDateP);
@@ -870,8 +895,9 @@ export function Map() {
 
                                     // replace placeholder with what we have now
                                     // append current
-                                    nowTextDiv.appendChild(nowTempP);
                                     nowDiv.appendChild(nowIconImg);
+                                    nowTextDiv.appendChild(nowTempP);
+                                    nowTextDiv.appendChild(nowDescP);
                                     nowDiv.appendChild(nowTextDiv);
                                     
                                     // replace
@@ -880,7 +906,9 @@ export function Map() {
                                     stopInfoWeather.appendChild(forecastP);
                                     stopInfoWeather.appendChild(forecastDiv);
                                 } else {
-                                    innerHtml = innerHtml.replace(WEATHER_LOADING_PLACEHOLDER, "Could not get weather data.");
+                                    // replace placeholder with failed text
+                                    const currentInnerHTML = stopInfoWeather.innerHTML;
+                                    stopInfoWeather.innerHTML = currentInnerHTML.replace(WEATHER_LOADING_PLACEHOLDER, WEATHER_FAILED_TEXT);
                                 }
                             }
                         });
