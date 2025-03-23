@@ -50,11 +50,11 @@ export async function fetchGTFSData() {
         // {
         //      "trainId": {
         //          allCoordinates:         Array       ->      an array of all coordinates (for rendering)
-        //          distanceCoordinates:    Array       ->      an array of distances along the route with their coordinates
-        //              [
-        //                  {"distance": [lon,lat]}
-        //                  {"distance": [lon,lat]}
-        //              ]
+        //          distanceCoordinates:    Dictionary  ->      an array of distances along the route with their coordinates
+        //              {
+        //                  "distance": [lon,lat]
+        //              },
+        //              ...
         //          startDate:              Date        ->      date of start service
         //          endDate:                Date        ->      date of end service
         //          daysOfOperation         Array       ->      days this train will run on (key is type Number)
@@ -112,33 +112,37 @@ export async function fetchGTFSData() {
 
         // ====================== Process Shapes.txt ====================== //
         let currentTrainId = "";
+        let currentTrainDistanceIndex = -1;
         let currentTrain = {};
         for (let i = 1; i < shapeLines.length; i++) {
             const values = shapeLines[i].split(",");
             if (values.length === 5) {
                 const trainId = values[0];
                 const coordinates = [parseFloat(values[2]), parseFloat(values[1])];
-                const distance = (!values[4] || values[4].length === 0) ? "0.0" : values[4].trim();
+                var distance = values[4].trim();
+                if (String(distance).length === 0) {
+                    console.log("[WARN]: Shape " + trainId + " has invalid distances!");
+                    distance = currentTrainDistanceIndex;
+                }
                 if (currentTrainId.length == 0 || currentTrainId !== trainId) {
                     if (currentTrainId.length > 0 && currentTrainId !== trainId) {
                         // different current train id
                         // add current train, then make a new train
                         trains[currentTrainId] = currentTrain;
                         currentTrainId = "";
+                        currentTrainDistanceIndex = -1;
                         currentTrain = {};
                     }
                     currentTrainId = trainId;
-                    let data = {};
-                    data[distance] = coordinates;
-                    currentTrain["distanceCoordinates"] = [data];
+                    currentTrain["distanceCoordinates"] = {};
+                    currentTrain["distanceCoordinates"][String(distance)] = coordinates;
                     currentTrain["allCoordinates"] = [coordinates];
                 } else {
                     // continue adding coordinates to the current train
-                    let data = {};
-                    data[distance] = coordinates;
-                    currentTrain["distanceCoordinates"].push(data);
+                    currentTrain["distanceCoordinates"][String(distance)] = coordinates;
                     currentTrain["allCoordinates"].push(coordinates);
                 }
+                currentTrainDistanceIndex--;
             }
         }
 

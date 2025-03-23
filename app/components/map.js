@@ -18,6 +18,7 @@ export function Map() {
     const TRAIN_TOGGLE_SUFFIX = "_toggle";
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const WEATHER_FAILED_TEXT = "Could not get weather data.";
+    const INFO_PANEL_DEFAULT_INNERHTML = "Click on a route, stop <br/>or train to view its <br/>information.";
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
     const FLY_TO_ZOOM = 11.5;
@@ -62,9 +63,10 @@ export function Map() {
     //    60: "#cc1100",
     //    70: "#ee0000",
     //    80: "#000000"
-    //}
+    // }
+    // const MAX_CAPACITY = 80;
     
-    // use this for debug (or ~10 trains/track)
+    // use this for debug (or ~8 trains/track)
     const LINE_COLOR_GRADIENT = {
         0: "#00ff00",
         2: "#66ff00",
@@ -72,6 +74,7 @@ export function Map() {
         6: "#ff2200",
         8: "#000000"
     }
+    const MAX_CAPACITY = 8;
 
     // function to get the color for the # of trains
     function getTrainHightlightColor(trainsIn) {
@@ -91,10 +94,13 @@ export function Map() {
         // for each in unsorted:
         for (const current of unsortedIn) {
             var matched = true;
-            // search sortedCoordinates for matching number of trains on this track
+            // search sortedTrackOverlaySegments for matching number of trains on this track
             if (sorted.length > 0) {
                 for (let i = 0; i < sorted.length; i++) {
-                    if (sorted[i]["trains"] == current["trains"]) {
+                    var is_same = (sorted[i]["trainIds"].length == current["trainIds"].length) && sorted[i]["trainIds"].every(function(element, index) {
+                        return element === current["trainIds"][index]; 
+                    });
+                    if (sorted[i]["trains"] === current["trains"] && is_same) {
                         // if found:
                         //      test to see if the coordinates start with last current coordinate
                         const currentCoordinateLength = current["coordinates"].length;
@@ -112,18 +118,20 @@ export function Map() {
                         if (a == c && b == d) {
                             //          append this unsorted coordinate to the start of the sorted coordinate
                             sorted[i]["coordinates"] = [...current["coordinates"], ...sorted[i]["coordinates"]];
+                            sorted[i]["trainIds"] = current["trainIds"];
                             break;
                         }
                         //      if it ends with the first current coordinate:
                         if (e == g && f == h) {
                             //          append this unsorted coordinate to the end of the sorted coordinate
                             sorted[i]["coordinates"] = [...sorted[i]["coordinates"], ...current["coordinates"]];
+                            sorted[i]["trainIds"] = current["trainIds"];
                             break;
                         }
                     }
                     if (i + 1 >= sorted.length) {
                         //      else no matches
-                        //          add to sortedCoordinates with this number of trains as there is no match.
+                        //          add to sortedTrackOverlaySegments with this number of trains as there is no match.
                         matched = false;
                     }
                 }
@@ -134,6 +142,7 @@ export function Map() {
                 sorted.push(
                     {
                         "trains": current["trains"],
+                        "trainIds": current["trainIds"],
                         "coordinates": current["coordinates"]
                     }
                 );
@@ -202,17 +211,17 @@ export function Map() {
     useEffect(() => {
         // resets
         document.getElementById("train_menu").textContent = "";
+        document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
         
         if (trains.length === 0) return;
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
         // var today = new Date("2025-03-06");
-        // today.setHours(17);
-        // today.setMinutes(50);
+        // today.setHours(13);
+        // today.setMinutes(30);
         var today = new Date();
         var day = today.getDay();
-        var renderedStops = [];
         // cached weather for stops
         // {
         //      stopId: weatherData
@@ -238,7 +247,7 @@ export function Map() {
         map.addInteraction("map_click", {
             type: "click",
             handler: ({feature}) => {
-                document.getElementById("info_area").text = "Click on a stop or train <br/>to view its information.";
+                document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
                 // update current zoom / center
                 setLastZoom(map.getZoom());
                 setLastCenter(map.getCenter());
@@ -250,25 +259,22 @@ export function Map() {
         // update current zoom
         map.on("zoomend", () => { setLastZoom(map.getZoom()); });
 
-        // Unique train coordinates that don't overlay onto other tracks
-        // [
-        //      "coordLonA, coordLatA, coordLonB, coordLatB",
-        //      "coordLonC, coordLatC, coordLonD, coordLatD",
-        //      "coordLonA, coordLatA, coordLonE, coordLatE",
+        // {
+        //      "trainId": [allCoordinates],
+        //      "trainId": [allCoordinates],
         //      ...
-        // ]
-        //
-        var uniquePointSections = [];
+        // }
+        var routeShapesToRender = {};
 
         // Overlaid train coordinates that overlay on other tracks
         // {
         //      "coordLonA, coordLatA, coordLonB, coordLatB": {
-        //          "trains": 3,
+        //          "trains": ["trainId", "trainId", ...],
         //          "from": [coordLonA, coordLatA],
         //          "to":   [coordLonB, coordLatB]
         //      }
         // }
-        var overlaidPointSections = {};
+        var trackOverlaySegments = {};
         
         // {
         //      "trainId": {
@@ -288,6 +294,9 @@ export function Map() {
             var totalTrains = 0;
             var totalTrainsAtStops = 0;
             var totalTrainsMoving = 0;
+
+            // keep track of the stops that we have already added to the map
+            var addedStops = [];
 
             // ===================== Add Railway Lines ===================== //
 
@@ -340,55 +349,132 @@ export function Map() {
                     continue; // L0
                 }
 
+                // ===== This route can be rendered after this point ===== //
+
+                routeShapesToRender[tripId] = trains[tripId]["allCoordinates"];
+                const trainDistanceCoordinates = trains[tripId]["distanceCoordinates"];
+
+                // remaining coordinates left on this train's trip
+                const remainingCoordinates = trains[tripId]["distanceCoordinates"];
+
+                // *** L0
+                var hasNoDistances = false;
+                for (const distance in trainDistanceCoordinates) {
+                    if (distance.includes("-")) {
+                        console.log("[WARN]: Train " + tripId + " has no distances set");
+                        hasNoDistances = true;
+                        break; // L0
+                    }
+                }
+
+                let trainCoordinates = [0, 0];
+                let trainIsMoving = false;
                 // *** L1
                 for (let i = 0; i < stopDataLength; i++) {
                     // - if current time is less than or equal to the departure time
                     const departTime = stopData[i]["departureTime"];
                     const departTimeMinutes = (departTime.getHours() * 60) + departTime.getMinutes();
-                    if (currentTimeMinutes > departTimeMinutes) continue; // L1
-                    // - then we know the train is here, or enroute to here
-                    // - check arrival time
-                    const arriveTime = stopData[i]["arrivalTime"];
-                    const arriveTimeMinutes = (arriveTime.getHours() * 60) + arriveTime.getMinutes();
-                    let trainCoordinates = [0, 0];
-                    let trainIsMoving = false;
-                    // - if current time is more than arrival time
-                    if (currentTimeMinutes >= arriveTimeMinutes || i === 0) {
-                        totalTrainsAtStops += 1;
-                        // - then the train is at this stop
-                        // set trainCoordinates
-                        const stopId = stopData[i]["stopId"];
-                        // *** L2
-                        for (var id in stops) {
-                            const stopIdCoordinates = stops[id]["coordinates"];
-                            trainCoordinates = stopIdCoordinates;
-                            if (id === stopId) {
-                                break; // L2
+                    if (currentTimeMinutes >= departTimeMinutes) {
+                        if (hasNoDistances) {
+                            // test next stop
+                            if (i + 1 < stopDataLength) {
+                                const nextDepartTime = stopData[i + 1]["departureTime"];
+                                const nextDepartTimeMinutes = (nextDepartTime.getHours() * 60) + nextDepartTime.getMinutes();
+                                if (currentTimeMinutes > nextDepartTimeMinutes) continue; // L1
                             }
+                            trainIsMoving = true;
+                            // delete distances up to the last-known stop
+                            // first we need to find the closest drawable train coordinate to this stop's coordinates
+                            const stopCoordinates = stops[stopData[i]["stopId"]]["coordinates"];
+                            console.log("### this train should be near stop " + stopData[i]["stopId"] + ": " + JSON.stringify(stopCoordinates));
+                            const allCoords = trains[tripId]["allCoordinates"];
+                            var bestCoord = [0, 0];
+                            var bestResult = 2 ** 32 - 1;
+                            // d = sqrt( (x2 - x1)^2 - (y2 - y1)^2 )
+                            // *** L2
+                            for (const testCoord of allCoords) {
+                                const left = Math.abs(Math.abs(testCoord[0]) - Math.abs(stopCoordinates[0]));
+                                const right = Math.abs(Math.abs(testCoord[1]) - Math.abs(stopCoordinates[1]));
+                                const result = Math.sqrt(left ** 2 + right ** 2);
+                                if (result <= bestResult) {
+                                    bestCoord = testCoord;
+                                    bestResult = result;
+                                }
+                            }
+                            console.log("Best coordinate for " + tripId + ": " + JSON.stringify(bestCoord));
+                            trainCoordinates = bestCoord;
+                            // delete remainingCoordinates up to this distance
+                            // *** L3
+                            for (const distance in remainingCoordinates) {
+                                const flag = remainingCoordinates[distance][0] != bestCoord[0];
+                                const flag1 = remainingCoordinates[distance][1] != bestCoord[1];
+                                if (flag && flag1) {
+                                    delete remainingCoordinates[distance];
+                                } else {
+                                    break; // L3
+                                }
+                            }
+                        } else if (currentTimeMinutes > departTimeMinutes) {
+                            // train has left this station
+                            continue; // L1
                         }
-                    } else {
-                        totalTrainsMoving += 1;
-                        trainIsMoving = true;
-                        // - then the train is enroute to this stop
-                        // calculate average train velocity
-                        // (this stop"s distance - last stop"s distance) / (this stop"s arrival time - last stop"s departure time)
-                        const currentDistance = parseFloat(stopData[i]["distance"]);
-                        const lastDistance = parseFloat(stopData[i - 1]["distance"]);
-                        const lastArriveTime = stopData[i - 1]["arrivalTime"];
-                        const lastArriveTimeMinutes = (lastArriveTime.getHours() * 60) + lastArriveTime.getMinutes();
-                        // velocity (meters/minute) * time = approximate train location
-                        const approxVelocity = (currentDistance - lastDistance) / (arriveTimeMinutes - lastArriveTimeMinutes);
-                        const approxDistance = (approxVelocity * (currentTimeMinutes - lastArriveTimeMinutes)) + lastDistance;
-                        // find closest renderable location
-                        const trainDistanceCoordinates = trains[tripId]["distanceCoordinates"];
-                        const keys = Object.keys(trainDistanceCoordinates);
-                        // *** L3
-                        for (const key in keys) {
-                            const distance = Object.keys(trainDistanceCoordinates[key])[0];
-                            if (distance <= approxDistance) {
-                                trainCoordinates = trainDistanceCoordinates[key][distance];
-                            } else {
-                                break; // L3
+                    }
+                    if (!hasNoDistances) {
+                        // - then we know the train is here, or enroute to here
+                        // - check arrival time
+                        const arriveTime = stopData[i]["arrivalTime"];
+                        const arriveTimeMinutes = (arriveTime.getHours() * 60) + arriveTime.getMinutes();
+                        // - if current time is more than arrival time
+                        if (!hasNoDistances && (currentTimeMinutes >= arriveTimeMinutes || i === 0)) {
+                            totalTrainsAtStops += 1;
+                            console.log("[INFO]: Train " + tripId + " is at a stop");
+                            // - then the train is at this stop
+                            // set trainCoordinates
+                            const stopId = stopData[i]["stopId"];
+                            trainCoordinates = stops[stopId]["coordinates"];
+
+                            // delete coordinates up to this distance in remainingCoordinates
+                            for (const distance in remainingCoordinates) {
+                                if (parseFloat(distance) < parseFloat(stopData[i]["distance"])) {
+                                    delete remainingCoordinates[distance];
+                                }
+                            }
+                        } else {
+                            totalTrainsMoving += 1;
+                            trainIsMoving = true;
+                            console.log("[INFO]: Train " + tripId + " is moving");
+                            // - then the train is enroute to this stop
+                            // calculate average train velocity
+                            // (this stop"s distance - last stop"s distance) / (this stop"s arrival time - last stop"s departure time)
+                            const currentDistance = parseFloat(stopData[i]["distance"]);
+                            const lastDistance = parseFloat(stopData[i - 1]["distance"]);
+                            const lastArriveTime = stopData[i - 1]["arrivalTime"];
+                            const lastArriveTimeMinutes = (lastArriveTime.getHours() * 60) + lastArriveTime.getMinutes();
+                            // velocity (meters/minute) * time = approximate train location
+                            const approxVelocity = (currentDistance - lastDistance) / (arriveTimeMinutes - lastArriveTimeMinutes);
+                            const approxDistance = (approxVelocity * (currentTimeMinutes - lastArriveTimeMinutes)) + lastDistance;
+                            // find closest renderable location
+                            // *** L3
+                            var lastDist = 0.0;
+                            for (const dist in trainDistanceCoordinates) {
+                                const d = parseFloat(dist);
+                                const flag = (d >= approxDistance);
+                                if (d <= approxDistance) {
+                                    trainCoordinates = trainDistanceCoordinates[dist];
+                                    lastDist = dist;
+                                }
+                                if (flag) {
+                                    // delete remainingCoordinates up to this distance
+                                    // *** L4
+                                    for (const distance in remainingCoordinates) {
+                                        if (parseFloat(distance) < lastDist) {
+                                            delete remainingCoordinates[distance];
+                                        } else {
+                                            break; // L4
+                                        }
+                                    }
+                                    break; // L3
+                                }
                             }
                         }
                     }
@@ -397,11 +483,12 @@ export function Map() {
                         trainShapesToRender[tripId] = {};
                         trainShapesToRender[tripId]["coordinates"] = trainCoordinates;
                         trainShapesToRender[tripId]["isMoving"] = trainIsMoving;
+                    } else {
+                        console.log("[ERROR]: Failed to add train: " + tripId);
                     }
                     break; // L1
                 }
 
-                // ===== This route can be rendered after this point ===== //
                 totalTrains += 1;
                 const trainAllCoordinates = trains[tripId]["allCoordinates"];
 
@@ -409,75 +496,31 @@ export function Map() {
                 function processCoordinatePair(a0, a1, b0, b1) {
                     const forwardKey = `${a0},${a1},${b0},${b1}`;
                     const reverseKey = `${b0},${b1},${a0},${a1}`;
-                    if (uniquePointSections.includes(forwardKey)) {
-                        if (!overlaidPointSections[forwardKey]) {
-                            overlaidPointSections[forwardKey] = {};
-                            overlaidPointSections[forwardKey]["from"] = [a0, a1];
-                            overlaidPointSections[forwardKey]["to"] = [b0, b1];
-                            overlaidPointSections[forwardKey]["trains"] = 2;
-                        } else {
-                            overlaidPointSections[forwardKey]["trains"] = overlaidPointSections[forwardKey]["trains"] + 1;
+                    if (forwardKey in trackOverlaySegments) {
+                        if (!trackOverlaySegments[forwardKey]["trains"].includes(tripId)) {
+                            trackOverlaySegments[forwardKey]["trains"].push(tripId);
                         }
-                        // filter from unique points
-                        uniquePointSections.filter(key => key == forwardKey);
-                    } else if (uniquePointSections.includes(reverseKey)) {
-                        if (!overlaidPointSections[reverseKey]) {
-                            overlaidPointSections[reverseKey] = {};
-                            overlaidPointSections[reverseKey]["from"] = [b0, b1];
-                            overlaidPointSections[reverseKey]["to"] = [a0, a1];
-                            overlaidPointSections[reverseKey]["trains"] = 2;
-                        } else {
-                            overlaidPointSections[reverseKey]["trains"] = overlaidPointSections[reverseKey]["trains"] + 1;
+                    } else if (reverseKey in trackOverlaySegments) {
+                        if (!trackOverlaySegments[reverseKey]["trains"].includes(tripId)) {
+                            trackOverlaySegments[reverseKey]["trains"].push(tripId);
                         }
-                        // filter from unique points
-                        uniquePointSections.filter(key => key == reverseKey);
                     } else {
                         // add unique point
-                        uniquePointSections.push(forwardKey);
+                        trackOverlaySegments[forwardKey] = {};
+                        trackOverlaySegments[forwardKey]["trains"] = [tripId];
+                        trackOverlaySegments[forwardKey]["from"] = [a0, a1];
+                        trackOverlaySegments[forwardKey]["to"] = [b0, b1];
                     }
                 }
 
-                // Forward traversal
                 let lastCoordinate = null;
-                for (const coordinate of trainAllCoordinates) {
+                for (const distance in remainingCoordinates) {
+                    const coordinate = remainingCoordinates[distance];
                     if (lastCoordinate) {
                         processCoordinatePair(lastCoordinate[0], lastCoordinate[1], coordinate[0], coordinate[1]);
                     }
                     lastCoordinate = coordinate;
                 }
-
-                // this is now redundant, since traffic is always above the shape
-                // kept in code in case we want it later
-                // - draw this train's shape
-                // const shapeName = ROUTE_PREFIX + tripId;
-                // map.addSource(shapeName, {
-                //     "type": "geojson",
-                //     "data": {
-                //         "type": "Feature",
-                //         "properties": {},
-                //         "geometry": {
-                //             "type": "LineString",
-                //             "coordinates": trainAllCoordinates
-                //         },
-                //         "id": shapeName
-                //     }
-                // });
-                // map.addLayer({
-                //     "id": shapeName,
-                //     "type": "line",
-                //     "slot": "bottom",
-                //     "source": shapeName,
-                //     "layout": {
-                //         "visibility": "visible",
-                //         "line-join": "round",
-                //         "line-cap": "round"
-                //     },
-                //     "paint": {
-                //         "line-opacity": 1.0,
-                //         "line-color": "#808080",
-                //         "line-width": 2
-                //     }
-                // });
 
                 // delete existing elements if they exist
                 const trainDivId = tripId + "_menu_div";
@@ -521,7 +564,7 @@ export function Map() {
                     innerHtml += "<b>Status</b><br>" + (trainShapesToRender[trainId]["isMoving"] ? "Enroute to next station" : "Stopped at station");
                     infoArea.innerHTML = innerHtml;
 
-                    // fly to train
+                    // center map onto train
                     map.flyTo({ "center": coordinates, "zoom": FLY_TO_ZOOM, "essential": true });
                 };
 
@@ -560,8 +603,8 @@ export function Map() {
                     const stopId = stopTimes[tripId][index]["stopId"];
                     if (!stops[stopId]) continue;
                     const stopCoordinates = stops[stopId]["coordinates"];
-                    if (!(renderedStops.includes(stopId))) {
-                        renderedStops.push(stopId);
+                    if (!(addedStops.includes(stopId))) {
+                        addedStops.push(stopId);
                         stopShapesToRender[stopId] = stopCoordinates;
                     }
                 }
@@ -569,6 +612,42 @@ export function Map() {
 
 
             // ==================== Add layers to map ==================== //
+
+            function renderRoutes() {
+                for (const tripId in routeShapesToRender) {
+                    // - draw this train's shape
+                    const shapeName = ROUTE_PREFIX + tripId;
+                    map.addSource(shapeName, {
+                        "type": "geojson",
+                        "data": {
+                            "type": "Feature",
+                            "properties": {},
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": routeShapesToRender[tripId]
+                            },
+                            "id": shapeName
+                        }
+                    });
+                    map.addLayer({
+                        "id": shapeName,
+                        "type": "line",
+                        "slot": "bottom",
+                        "source": shapeName,
+                        "layout": {
+                            "visibility": "visible",
+                            "line-join": "round",
+                            "line-cap": "round"
+                        },
+                        "paint": {
+                            "line-opacity": 1.0,
+                            "line-color": "#808080",
+                            "line-width": 1.5
+                        }
+                    });
+                }
+            }
+
 
             // [
             //      {
@@ -594,30 +673,15 @@ export function Map() {
             //      }
             //      ...
             // ]
-            var unsortedMultiTrain = [];
-            var unsortedUniqueTrain = [];
+            var unsortedTrackOverlaySegments = [];
 
-            // add all overlays to unsortedMultiTrain
-            for (const entry in overlaidPointSections) {
-                unsortedMultiTrain.push(
+            // add all overlays to unsortedTrackOverlaySegments
+            for (const entry in trackOverlaySegments) {
+                unsortedTrackOverlaySegments.push(
                     {
-                        "trains": overlaidPointSections[entry]["trains"],
-                        "coordinates": [overlaidPointSections[entry]["from"], overlaidPointSections[entry]["to"]]
-                    }
-                );
-            }
-            
-            // add all unique to unsortedUniqueTrain
-            for (const item of uniquePointSections) {
-                const coordStrings = item.split(",");
-                const coord0 = parseFloat(coordStrings[0]);
-                const coord1 = parseFloat(coordStrings[1]);
-                const coord2 = parseFloat(coordStrings[2]);
-                const coord3 = parseFloat(coordStrings[3]);
-                unsortedUniqueTrain.push(
-                    {
-                        "trains": 1,
-                        "coordinates": [[coord0, coord1], [coord2, coord3]],
+                        "trains": trackOverlaySegments[entry]["trains"].length,
+                        "trainIds": trackOverlaySegments[entry]["trains"],
+                        "coordinates": [trackOverlaySegments[entry]["from"], trackOverlaySegments[entry]["to"]]
                     }
                 );
             }
@@ -633,12 +697,12 @@ export function Map() {
             //          ...
             //      }
             // ]
-            var sortedUniqueCoordinates = sortAndMerge(unsortedUniqueTrain);
-            var sortedCoordinates = sortAndMerge(unsortedMultiTrain);
+            var sortedTrackOverlaySegments = sortAndMerge(unsortedTrackOverlaySegments);
 
-            function renderHighlight(sortedCoordinatesIn) {
-                for (const obj of sortedCoordinatesIn) {
+            function renderTrackOverlays(sortedTrackOverlaySegmentsIn) {
+                for (const obj of sortedTrackOverlaySegmentsIn) {
                     const numberOfTrains = obj["trains"];
+                    const trainIds = obj["trainIds"];
                     const coordinates = obj["coordinates"];
                     const shapeName = OVERLAY_PREFIX + numberOfTrains + "_" + String(coordinates.toString());
                     map.addSource(shapeName, {
@@ -668,6 +732,34 @@ export function Map() {
                             "line-opacity": 1.0,
                             "line-color": getTrainHightlightColor(numberOfTrains),
                             "line-width": 5
+                        }
+                    });
+
+                    map.addInteraction(shapeName + "_click", {
+                        type: "click",
+                        target: { layerId: shapeName },
+                        handler: async ({ feature }) => {
+                            console.log("[DEBUG]: Clicked overlay: " + shapeName.replace(OVERLAY_PREFIX, ""));
+                            const infoArea = document.getElementById("info_area");
+                            const capacityDiv = document.createElement("div");
+                            capacityDiv.className = "flex flex-col text-left";
+                            const capacityText = document.createElement("p");
+                            var capacityTextInnerHTML = "";
+                            capacityTextInnerHTML += "<b>Total Scheduled Track Capacity</b><br>" + numberOfTrains + "/" + MAX_CAPACITY;
+                            capacityTextInnerHTML += "<br><br>";
+                            capacityTextInnerHTML += "<b>Trains Scheduled on this Track</b><br>";
+                            const trainList = document.createElement("ul");
+                            trainList.className = "flex flex-col list-disc pl-4";
+                            for (const id of trainIds) {
+                                const trainListItem = document.createElement("li");
+                                trainListItem.innerHTML = id;
+                                trainList.appendChild(trainListItem);
+                            }
+                            infoArea.innerHTML = "";
+                            capacityText.innerHTML = capacityTextInnerHTML;
+                            capacityDiv.appendChild(capacityText);
+                            capacityDiv.appendChild(trainList);
+                            infoArea.appendChild(capacityDiv);
                         }
                     });
                 }
@@ -921,8 +1013,8 @@ export function Map() {
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ========================== START ========================== //
-            renderHighlight(sortedUniqueCoordinates);
-            renderHighlight(sortedCoordinates);
+            renderRoutes();
+            renderTrackOverlays(sortedTrackOverlaySegments);
             renderTrains();
             renderStops();
             // =========================== END =========================== //
