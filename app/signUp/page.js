@@ -8,9 +8,9 @@ import "../styles.css";
 
 // List of Canadian provinces
 const provinces = [
-    "All", "ON", "QC", "BC", "AB", "MB",
-    "SK", "NS", "NB", "NL",
-    "PE", "NT", "YT", "NU"
+    "Canada", "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+    "Newfoundland and Labrador", "Northwest Territories", "Nova Scotia", "Nunavut",
+    "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan", "Yukon"
   ];  
 
 export default function Page() {
@@ -18,7 +18,7 @@ export default function Page() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
-  const [province, setProvince] = useState("All"); // Default province selection
+  const [province, setProvince] = useState("Canada"); // Default province selection
 
   const emailRef = useRef(null);
   const passwordRef = useRef(null);

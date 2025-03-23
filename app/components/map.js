@@ -1,5 +1,6 @@
 import Link from "next/link";
 import mapboxgl from "mapbox-gl";
+import * as turf from "@turf/turf";
 import React, { useEffect, useRef, useState } from "react";
 import { fetchGTFSData } from "./utils/fetchShapeData";
 import { fetchWeatherData } from "./utils/fetchWeather";
@@ -9,7 +10,7 @@ import { useTrack } from "./context/TrackContext";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "../styles.css";
 
-export function Map() {
+export function Map({ region }) {
     const ROUTE_PREFIX = "route_";
     const STOP_PREFIX = "stop_";
     const TRAIN_PREFIX = "train_";
@@ -21,30 +22,255 @@ export function Map() {
     const INFO_PANEL_DEFAULT_INNERHTML = "Click on a route, stop <br/>or train to view its <br/>information.";
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
+    const MAP_MASK_COLOR = "#223B34";
     const FLY_TO_ZOOM = 11.5;
-    const DAYS = {
-        0: "Sunday",
-        1: "Monday",
-        2: "Tuesday",
-        3: "Wednesday",
-        4: "Thursday",
-        5: "Friday",
-        6: "Saturday"
+    const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    const MAP_BOUNDS_SW = [-178.330078125, 1.5818302639606];
+    const MAP_BOUNDS_NE = [-0.791015625, 84.818373372456];
+
+    function polyMask(mask) {
+        const bounds = [MAP_BOUNDS_SW[0], MAP_BOUNDS_SW[1], MAP_BOUNDS_NE[0], MAP_BOUNDS_NE[1]];
+        var bboxPoly = turf.bboxPolygon(bounds);
+        return turf.difference(turf.featureCollection([bboxPoly, mask]));
     }
-    
-    const MONTHS = {
-        0: "Jan",
-        1: "Feb",
-        2: "Mar",
-        3: "Apr",
-        4: "May",
-        5: "Jun",
-        6: "Jul",
-        7: "Aug",
-        8: "Sep",
-        9: "Oct",
-        10: "Nov",
-        11: "Dec"
+
+    const REGION_CROPS = {
+        "Alberta": {
+            "center": [-114.640730675, 54.186885590834],
+            "zoom": 6.0,
+            "bounds": [
+                [-120.04522932891, 60.045707540494],
+                [-109.98175276641, 60.001793791265],
+                [-109.98175276641, 48.926188895396],
+                [-114.12342703308, 48.948080972704],
+                [-114.83823540355, 49.563404461929],
+                [-114.70639946605, 49.918395397434],
+                [-115.01401665355, 50.564803964376],
+                [-115.6951689973, 50.88472562641],
+                [-116.77182915355, 51.777072925056],
+                [-116.94761040355, 51.709046799086],
+                [-117.47495415355, 52.115668791014],
+                [-117.8484893098, 52.236938071871],
+                [-117.8045439973, 52.331030154307],
+                [-117.9803252473, 52.465100997535],
+                [-118.09018852855, 52.317600660243],
+                [-118.88120415355, 53.142540896441],
+                [-119.27671196605, 53.168892363524],
+                [-119.9578643098, 53.509991356166],
+                [-120.04522932891, 60.045707540494]
+            ]
+        },
+        "British Columbia": {
+            "center": [-124.19726803433, 53.989939178708],
+            "zoom": 6.0,
+            "bounds": [
+                [-119.93094032392, 60.05858764831],
+                [-120.01883094892, 53.767284025597],
+                [-119.22781532392, 53.139255186466],
+                [-118.48074501142, 52.795186211252],
+                [-118.12918251142, 52.287378938457],
+                [-117.33816688642, 52.098809266831],
+                [-116.01980751142, 51.061142965949],
+                [-115.49246376142, 50.617124087221],
+                [-115.00906532392, 50.505458692424],
+                [-114.78933876142, 49.99968614728],
+                [-114.65750282392, 49.488536360024],
+                [-114.08621376142, 48.971993275661],
+                [-123.13894813642, 48.971993275661],
+                [-122.83133094892, 48.798611187828],
+                [-123.09500282392, 48.304094578418],
+                [-123.22683876142, 48.099064439576],
+                [-124.89676063642, 48.420886316591],
+                [-129.11551063642, 50.421535960495],
+                [-131.40066688642, 54.437205606521],
+                [-130.08230751142, 55.146606853373],
+                [-130.12625282392, 55.991373895957],
+                [-130.78543251142, 56.285202977093],
+                [-131.92801063642, 56.625171969795],
+                [-132.36746376142, 57.081707159031],
+                [-133.51004188642, 58.372108934919],
+                [-135.17996376142, 59.371605486965],
+                [-135.17996376142, 59.572506360374],
+                [-135.48758094892, 59.750083874535],
+                [-136.27859657392, 59.639208145647],
+                [-136.45437782392, 59.192022291664],
+                [-137.37722938642, 58.943545345351],
+                [-137.64090126142, 59.169507737903],
+                [-139.17898719892, 60.014691026452],
+                [-119.93094032392, 60.05858764831]
+            ]
+        },
+        "Manitoba": {
+            "center": [-97.459692261564, 54.943038985553],
+            "zoom": 6.0,
+            "bounds": [
+                [-101.99803881265, 60.053063072229],
+                [-101.99803881265, 55.935985043441],
+                [-101.33885912515, 49.022396392955],
+                [-95.098624750155, 49.022396392955],
+                [-95.186515375155, 52.841613542701],
+                [-88.726554437655, 57.051798626789],
+                [-90.967765375155, 57.455897507154],
+                [-92.110343500155, 57.384907736538],
+                [-93.033195062655, 58.915153356172],
+                [-94.395499750155, 58.983154115828],
+                [-94.527335687655, 60.031118380904],
+                [-101.99803881265, 60.053063072229]
+            ],
+        },
+        "Ontario": {
+            "center": [-84.421392102932, 49.554949932766],
+            "zoom": 6.0,
+            "bounds": [
+                [-88.852797535494, 56.919157397015],
+                [-95.224867847994, 52.853829263575],
+                [-95.180922535494, 49.351560511087],
+                [-94.741469410494, 49.265605510096],
+                [-94.697524097994, 48.804643947776],
+                [-93.994399097994, 48.572560144328],
+                [-93.511000660494, 48.485252865572],
+                [-92.895766285494, 48.659716925711],
+                [-92.324477222994, 48.280950297654],
+                [-91.928969410494, 48.339406142038],
+                [-91.445570972994, 48.046457069158],
+                [-90.874281910494, 48.222427483641],
+                [-90.039320972994, 48.017070025938],
+                [-89.336195972994, 47.958245659367],
+                [-88.369399097994, 48.280950297654],
+                [-84.897719410494, 46.917953519456],
+                [-84.634047535494, 46.465811844747],
+                [-84.194594410494, 46.496072401829],
+                [-83.974867847994, 46.009883326018],
+                [-83.403578785494, 45.979353378919],
+                [-83.535414722994, 45.642412201277],
+                [-82.568617847994, 45.303432368924],
+                [-82.129164722994, 43.73691724709],
+                [-82.392836597994, 42.809049503837],
+                [-82.920180347994, 42.258555032155],
+                [-83.183852222994, 41.899768768783],
+                [-82.436781910494, 41.637559839221],
+                [-81.294203785494, 42.226021939857],
+                [-78.965102222994, 42.712256078852],
+                [-79.184828785494, 43.38663290895],
+                [-78.525649097994, 43.641587142577],
+                [-76.899672535494, 43.673380679114],
+                [-74.482680347994, 45.148676573414],
+                [-74.526625660494, 45.488583215575],
+                [-74.922133472994, 45.642412201277],
+                [-75.932875660494, 45.396083622609],
+                [-76.679945972994, 45.51938271211],
+                [-77.163344410494, 45.826450987095],
+                [-77.734633472994, 46.283895025396],
+                [-78.657485035494, 46.31425658019],
+                [-79.492445972994, 47.157548529877],
+                [-79.536391285494, 51.670465192888],
+                [-80.107680347994, 52.346704572414],
+                [-81.953383472994, 55.126722286141],
+                [-88.852797535494, 56.919157397015]
+            ],
+        },
+        "Quebec": {
+            "center": [-71.559202900364, 51.883013636605],
+            "zoom": 6.0,
+            "bounds": [
+                [-64.634989557155, 60.483892108194],
+                [-64.722880182155, 59.517191344758],
+                [-64.371317682155, 58.887200144951],
+                [-63.843973932155, 58.819010143774],
+                [-63.975809869655, 58.499010786691],
+                [-64.327372369655, 58.129692384368],
+                [-63.668192682155, 57.662600643554],
+                [-63.931864557155, 56.297802959156],
+                [-63.448466119655, 55.209759258626],
+                [-63.843973932155, 54.705112904779],
+                [-65.294169244655, 54.857172574284],
+                [-66.744364557155, 55.259875756221],
+                [-67.051981744655, 54.781214199612],
+                [-67.974833307155, 54.21981050963],
+                [-67.051981744655, 53.441780258495],
+                [-67.095927057155, 52.941528840142],
+                [-66.436747369655, 52.941528840142],
+                [-65.997294244655, 52.112754182478],
+                [-64.415262994655, 51.624333769178],
+                [-64.195536432155, 52.729147763043],
+                [-63.316630182155, 52.862007623401],
+                [-63.931864557155, 52.408626313345],
+                [-63.448466119655, 52.004674511341],
+                [-57.340067682155, 51.923443080336],
+                [-57.076395807155, 51.213257683885],
+                [-59.801005182155, 49.872874805459],
+                [-64.327372369655, 50.098920541466],
+                [-66.480692682155, 49.816197332425],
+                [-63.536356744655, 49.102114302253],
+                [-63.887919244655, 48.143556554098],
+                [-66.744364557155, 47.996730940397],
+                [-67.315653619655, 47.878968768276],
+                [-67.805979619475, 48.0017645802],
+                [-68.421213994475, 47.898747392704],
+                [-68.377268681975, 47.48462400894],
+                [-69.058421025725, 47.276328565794],
+                [-69.256174931975, 47.380579154571],
+                [-69.981272588225, 46.76704019532],
+                [-70.310862431975, 45.978724370573],
+                [-70.772288213225, 45.287338931613],
+                [-71.101878056975, 45.27187792422],
+                [-71.409495244475, 45.209991764302],
+                [-71.563303838225, 44.946223539354],
+                [-74.771311650725, 44.992859350142],
+                [-74.375803838225, 45.209991764302],
+                [-74.375803838225, 45.534142101801],
+                [-75.056956181975, 45.657139280657],
+                [-75.584299931975, 45.51874849879],
+                [-76.353342900725, 45.51874849879],
+                [-76.902659306975, 45.887032428259],
+                [-77.386057744475, 45.993991622913],
+                [-77.847483525725, 46.207291072811],
+                [-78.792307744475, 46.374304685736],
+                [-79.605296025725, 47.410327246394],
+                [-79.539378056975, 51.819555633485],
+                [-79.039093193625, 52.177196534625],
+                [-80.005890068625, 54.689611587986],
+                [-78.028351006125, 55.668195889809],
+                [-77.193390068625, 57.554064431109],
+                [-79.258819756125, 58.713954012789],
+                [-78.335968193625, 59.968674274115],
+                [-78.555694756125, 62.504632577123],
+                [-75.479522881125, 62.807411575127],
+                [-74.292999443625, 62.484337138891],
+                [-71.128936943625, 61.91043293457],
+                [-69.854522881125, 61.050227679768],
+                [-68.843780693625, 61.177599394221],
+                [-68.975616631125, 59.725861225947],
+                [-67.657257256125, 58.645422819778],
+                [-66.251007256125, 59.525875648821],
+                [-64.634989557155, 60.483892108194]
+            ],
+        },
+        "Saskatchewan": {
+            "center": [-105.89804558466, 54.619051900282],
+            "zoom": 6.0,
+            "bounds": [
+                [-109.99720563921, 60.069383463226],
+                [-109.99720563921, 48.986192078002],
+                [-101.25208845171, 48.986192078002],
+                [-101.95521345171, 56.00347199593],
+                [-101.95521345171, 60.047449621535],
+                [-109.99720563921, 60.069383463226]
+            ],
+        },
+        "Canada": {
+            "center": [-96.911615596645, 58.727691678169],
+            "zoom": 2.67
+        }
+    }
+
+    function regionCheck(regionIn) {
+        if (regionIn === undefined) return false;
+        if (regionIn === null) return false;
+        if (regionIn === "Unknown") return false;
+        return (regionIn in REGION_CROPS);
     }
 
     // color gradient
@@ -191,8 +417,11 @@ export function Map() {
     // https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
     // draw coordinates:
     // https://maps.co/gis/
+    // https://docs.mapbox.com/mapbox-gl-js/example/clip-layer/
 
     const fetchLatestData = async () => {
+        if (!regionCheck(region)) return;
+
         setLoading(true);
 
         const data = await fetchGTFSData();
@@ -202,25 +431,33 @@ export function Map() {
         setStopTimes(data.stopTimes);
 
         // default zoom level
-        if (lastZoom === 0.0) setLastZoom(MINIMUM_ZOOM_FOR_STOP_VISIBILITY);
+        if (lastZoom === 0.0) setLastZoom(REGION_CROPS[region]["zoom"]);
         // TODO: automatically find center
-        if (!lastCenter) setLastCenter([-79.38032, 43.64481]);
+        if (!lastCenter) setLastCenter(REGION_CROPS[region]["center"]);
     };
 
+    function resetTrainMenu() {
+        document.getElementById("train_menu").textContent = "";
+    }
+
+    function resetInfoMenu() {
+        document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
+    }
 
     useEffect(() => {
-        // resets
-        document.getElementById("train_menu").textContent = "";
-        document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
-        
+        if (!regionCheck(region)) return;
+        console.log("[INFO]: Load map for region: " + region);
+        resetTrainMenu();
+        resetInfoMenu();
+
         if (trains.length === 0) return;
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
-        // var today = new Date("2025-03-06");
-        // today.setHours(13);
-        // today.setMinutes(30);
-        var today = new Date();
+        var today = new Date("2025-03-06");
+        today.setHours(14);
+        today.setMinutes(20);
+        // var today = new Date();
         var day = today.getDay();
         // cached weather for stops
         // {
@@ -233,6 +470,7 @@ export function Map() {
             "container": "map",
             "style": "mapbox://styles/mapbox/light-v9",
             "center": lastCenter,
+            "maxBounds": [MAP_BOUNDS_SW[0], MAP_BOUNDS_SW[1], MAP_BOUNDS_NE[0], MAP_BOUNDS_NE[1]],
             "zoom": lastZoom
         });
 
@@ -247,7 +485,7 @@ export function Map() {
         map.addInteraction("map_click", {
             type: "click",
             handler: ({feature}) => {
-                document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
+                resetInfoMenu();
                 // update current zoom / center
                 setLastZoom(map.getZoom());
                 setLastCenter(map.getCenter());
@@ -288,12 +526,32 @@ export function Map() {
         // }
         var stopShapesToRender = {};
 
+        // {
+        //      "uuid": {
+        //          "type": [overlay/route/stop/train]
+        //          "id": 123
+        //      },
+        //      ...
+        // }
+        var layerReference = {};
+
+        var totalRoutes = 0;
+        var totalStops = 0;
+        var totalTrains = 0;
+        var totalTrainsAtStops = 0;
+        var totalTrainsMoving = 0;
+
+        function getUUIDForLayer() {
+            while (true) {
+                var out = self.crypto.randomUUID();
+                if (!(out in layerReference)) {
+                    return out;
+                }
+            }
+        }
 
         // ==================== on map load ==================== //
         map.on("load", () => {
-            var totalTrains = 0;
-            var totalTrainsAtStops = 0;
-            var totalTrainsMoving = 0;
 
             // keep track of the stops that we have already added to the map
             var addedStops = [];
@@ -350,6 +608,7 @@ export function Map() {
                 }
 
                 // ===== This route can be rendered after this point ===== //
+                totalRoutes++;
 
                 routeShapesToRender[tripId] = trains[tripId]["allCoordinates"];
                 const trainDistanceCoordinates = trains[tripId]["distanceCoordinates"];
@@ -361,7 +620,7 @@ export function Map() {
                 var hasNoDistances = false;
                 for (const distance in trainDistanceCoordinates) {
                     if (distance.includes("-")) {
-                        console.log("[WARN]: Train " + tripId + " has no distances set");
+                        console.log("[WARN]: Train " + tripId + " has no distances set - last-known stops will be used to determine its location");
                         hasNoDistances = true;
                         break; // L0
                     }
@@ -386,7 +645,6 @@ export function Map() {
                             // delete distances up to the last-known stop
                             // first we need to find the closest drawable train coordinate to this stop's coordinates
                             const stopCoordinates = stops[stopData[i]["stopId"]]["coordinates"];
-                            console.log("### this train should be near stop " + stopData[i]["stopId"] + ": " + JSON.stringify(stopCoordinates));
                             const allCoords = trains[tripId]["allCoordinates"];
                             var bestCoord = [0, 0];
                             var bestResult = 2 ** 32 - 1;
@@ -401,7 +659,6 @@ export function Map() {
                                     bestResult = result;
                                 }
                             }
-                            console.log("Best coordinate for " + tripId + ": " + JSON.stringify(bestCoord));
                             trainCoordinates = bestCoord;
                             // delete remainingCoordinates up to this distance
                             // *** L3
@@ -526,9 +783,7 @@ export function Map() {
                 const trainDivId = tripId + "_menu_div";
                 if (document.getElementById(trainDivId)) document.getElementById(trainDivId).remove();
 
-                const coord0 = String(trainShapesToRender[tripId]["coordinates"][0]);
-                const coord1 = String(trainShapesToRender[tripId]["coordinates"][1]);
-                const locatorLinkId = coord0 + "," + coord1 + TRAIN_LOCATOR_SUFFIX;
+                const locatorLinkId = tripId + TRAIN_LOCATOR_SUFFIX;
                 const toggleLinkId = tripId + TRAIN_TOGGLE_SUFFIX;
 
                 // add elements for train
@@ -550,18 +805,19 @@ export function Map() {
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const location = this.id.replace(TRAIN_LOCATOR_SUFFIX, "").split(",");
-                    const coordinates = [parseFloat(location[0]), parseFloat(location[1])];
                     const trainId = this.textContent;
+                    const shape = trainShapesToRender[trainId];
+                    const coordinates = shape["coordinates"];
+                    const moving = shape["isMoving"];
 
                     // update info area
                     const infoArea = document.getElementById("info_area");
                     var innerHtml = "";
                     innerHtml += "<b>Train ID</b><br>" + trainId;
                     innerHtml += "<br><br>"
-                    innerHtml += "<b>Location</b><br>" + "Lon: " + location[0] + "<br>" + "Lat: " + location[1];
+                    innerHtml += "<b>Location</b><br>" + "Lon: " + coordinates[0] + "<br>Lat: " + coordinates[1];
                     innerHtml += "<br><br>"
-                    innerHtml += "<b>Status</b><br>" + (trainShapesToRender[trainId]["isMoving"] ? "Enroute to next station" : "Stopped at station");
+                    innerHtml += "<b>Status</b><br>" + (moving ? "Enroute to next station" : "Stopped at station");
                     infoArea.innerHTML = innerHtml;
 
                     // center map onto train
@@ -576,19 +832,27 @@ export function Map() {
                 toggleLink.className = "map_menu_item_active";
 
                 toggleLink.onclick = function (e) {
-                    const trainLayer = TRAIN_PREFIX + this.id.replace(TRAIN_TOGGLE_SUFFIX, "");
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const trainVisibility = map.getLayoutProperty(trainLayer, "visibility");
-                    if (trainVisibility === "visible") {
-                        map.setLayoutProperty(trainLayer, "visibility", "none");
-                        this.className = "map_menu_item_inactive";
-                        toggleLink.textContent = "Show";
-                    } else {
-                        map.setLayoutProperty(trainLayer, "visibility", "visible");
-                        this.className = "map_menu_item_active";
-                        toggleLink.textContent = "Hide";
+                    const trainId = this.id.replace(TRAIN_TOGGLE_SUFFIX, "");
+
+                    for (const entry in layerReference) {
+                        const type = layerReference[entry]["type"];
+                        const id = layerReference[entry]["id"];
+                        if (type === "train" && id === trainId) {
+                            const trainVisibility = map.getLayoutProperty(entry, "visibility");
+                            if (trainVisibility === "visible") {
+                                map.setLayoutProperty(entry, "visibility", "none");
+                                this.className = "map_menu_item_inactive";
+                                toggleLink.textContent = "Show";
+                            } else {
+                                map.setLayoutProperty(entry, "visibility", "visible");
+                                this.className = "map_menu_item_active";
+                                toggleLink.textContent = "Hide";
+                            }
+                            break;
+                        }
                     }
                 };
 
@@ -598,12 +862,12 @@ export function Map() {
                 menu.appendChild(trainLink);
 
                 // ===================== Add Railway Stops ===================== //
-                const numberOfStops = Object.keys(stopTimes[tripId]);
-                for (var index in numberOfStops) {
+                for (var index in stopTimes[tripId]) {
                     const stopId = stopTimes[tripId][index]["stopId"];
                     if (!stops[stopId]) continue;
                     const stopCoordinates = stops[stopId]["coordinates"];
                     if (!(addedStops.includes(stopId))) {
+                        totalStops++;
                         addedStops.push(stopId);
                         stopShapesToRender[stopId] = stopCoordinates;
                     }
@@ -612,11 +876,21 @@ export function Map() {
 
 
             // ==================== Add layers to map ==================== //
+            var layerCounter = 0;
+            var routeLayers = 0;
+            var overlayLayers = 0;
+            var trainLayers = 0;
+            var stopLayers = 0;
 
             function renderRoutes() {
                 for (const tripId in routeShapesToRender) {
+                    layerCounter++;
+                    routeLayers++;
                     // - draw this train's shape
-                    const shapeName = ROUTE_PREFIX + tripId;
+                    const shapeName = getUUIDForLayer();
+                    layerReference[shapeName] = {};
+                    layerReference[shapeName]["type"] = "route";
+                    layerReference[shapeName]["id"] = tripId;
                     map.addSource(shapeName, {
                         "type": "geojson",
                         "data": {
@@ -701,10 +975,15 @@ export function Map() {
 
             function renderTrackOverlays(sortedTrackOverlaySegmentsIn) {
                 for (const obj of sortedTrackOverlaySegmentsIn) {
+                    layerCounter++;
+                    overlayLayers++;
                     const numberOfTrains = obj["trains"];
                     const trainIds = obj["trainIds"];
                     const coordinates = obj["coordinates"];
-                    const shapeName = OVERLAY_PREFIX + numberOfTrains + "_" + String(coordinates.toString());
+                    const shapeName = getUUIDForLayer();
+                    layerReference[shapeName] = {};
+                    layerReference[shapeName]["type"] = "overlay";
+                    layerReference[shapeName]["id"] = trainIds;
                     map.addSource(shapeName, {
                         "type": "geojson",
                         "data": {
@@ -739,15 +1018,15 @@ export function Map() {
                         type: "click",
                         target: { layerId: shapeName },
                         handler: async ({ feature }) => {
-                            console.log("[DEBUG]: Clicked overlay: " + shapeName.replace(OVERLAY_PREFIX, ""));
+                            console.log("[INFO]: Clicked overlay: " + shapeName);
                             const infoArea = document.getElementById("info_area");
                             const capacityDiv = document.createElement("div");
                             capacityDiv.className = "flex flex-col text-left";
                             const capacityText = document.createElement("p");
                             var capacityTextInnerHTML = "";
-                            capacityTextInnerHTML += "<b>Total Scheduled Track Capacity</b><br>" + numberOfTrains + "/" + MAX_CAPACITY;
+                            capacityTextInnerHTML += "<b>Scheduled Track Capacity</b><br>" + numberOfTrains + "/" + MAX_CAPACITY;
                             capacityTextInnerHTML += "<br><br>";
-                            capacityTextInnerHTML += "<b>Trains Scheduled on this Track</b><br>";
+                            capacityTextInnerHTML += "<b>Trains Headed for this Track</b><br>";
                             const trainList = document.createElement("ul");
                             trainList.className = "flex flex-col list-disc pl-4";
                             for (const id of trainIds) {
@@ -767,10 +1046,13 @@ export function Map() {
             
             function renderTrains() {
                 for (const tripId in trainShapesToRender) {
-                    const trainName = TRAIN_PREFIX + tripId;
                     const trainCoordinates = trainShapesToRender[tripId]["coordinates"];
                     const trainIsMoving = trainShapesToRender[tripId]["isMoving"];
-                    map.addSource(trainName, {
+                    const shapeName = getUUIDForLayer();
+                    layerReference[shapeName] = {};
+                    layerReference[shapeName]["type"] = "train";
+                    layerReference[shapeName]["id"] = tripId;
+                    map.addSource(shapeName, {
                         "type": "geojson",
                         "data": {
                             "type": "FeatureCollection",
@@ -791,12 +1073,14 @@ export function Map() {
                     while (tripIdNumber >= 100) {
                         tripIdNumber -= 100;
                     }
-                    if (!map.getLayer(trainName)) {
+                    if (!map.getLayer(shapeName)) {
+                        layerCounter++;
+                        trainLayers++;
                         map.addLayer({
-                            "id": trainName,
+                            "id": shapeName,
                             "type": "circle",
                             "minzoom": MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY,
-                            "source": trainName,
+                            "source": shapeName,
                             "layout": {
                                 "visibility": "visible"
                             },
@@ -807,14 +1091,14 @@ export function Map() {
                                 "circle-stroke-width": 2
                             }
                         });
-                        map.addInteraction(trainName + "_click", {
+                        map.addInteraction(shapeName + "_click", {
                             type: "click",
-                            target: { layerId: trainName },
+                            target: { layerId: shapeName },
                             handler: async ({ feature }) => {
-                                console.log("[DEBUG]: Clicked train: " + trainName.replace(TRAIN_PREFIX, ""));
+                                console.log("[INFO]: Clicked train: " + shapeName);
                                 const infoArea = document.getElementById("info_area");
                                 var innerHtml = "";
-                                innerHtml += "<b>Train ID</b><br>" + trainName.replace(TRAIN_PREFIX, "");
+                                innerHtml += "<b>Train ID</b><br>" + layerReference[shapeName]["id"];
                                 innerHtml += "<br><br>"
                                 innerHtml += "<b>Location</b><br>" + "Lon: " + trainCoordinates[0] + "<br>" + "Lat: " + trainCoordinates[1];
                                 innerHtml += "<br><br>"
@@ -828,32 +1112,37 @@ export function Map() {
             
             function renderStops() {
                 for (const stopId in stopShapesToRender) {
-                    const stopName = STOP_PREFIX + stopId;
+                    layerCounter++;
+                    stopLayers++;
                     const stopCoordinates = stopShapesToRender[stopId];
-                    map.addSource(stopName, {
+                    const shapeName = getUUIDForLayer();
+                    layerReference[shapeName] = {};
+                    layerReference[shapeName]["type"] = "stop";
+                    layerReference[shapeName]["id"] = tripId;
+                    map.addSource(shapeName, {
                         "type": "geojson",
                         "data": {
                             "type": "FeatureCollection",
                             "features": [
                                 {
                                     "type": "Feature",
-                                    "id": stopName, 
+                                    "id": shapeName, 
                                     "geometry": {
                                         "type": "Point",
                                         "coordinates": stopCoordinates
                                     },
                                     "properties": {
-                                        "name": stopName
+                                        "name": shapeName
                                     }
                                 }
                             ]
                         }
                     });
-                    if (!map.getLayer(stopName)) {
+                    if (!map.getLayer(shapeName)) {
                         map.addLayer({
-                            "id": stopName,
+                            "id": shapeName,
                             "type": "circle",
-                            "source": stopName,
+                            "source": shapeName,
                             "minzoom": MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
                             "layout": {
                                 "visibility": "visible"
@@ -864,11 +1153,11 @@ export function Map() {
                             }
                         });
                         
-                        map.addInteraction(stopName + "_click", {
+                        map.addInteraction(shapeName + "_click", {
                             type: "click",
-                            target: { layerId: stopName },
+                            target: { layerId: shapeName },
                             handler: async ({ feature }) => {
-                                console.log("[DEBUG]: Clicked stop: " + stopId);
+                                console.log("[INFO]: Clicked stop: " + layerReference[shapeName]["id"]);
                                 
                                 // clear the info area
                                 const infoArea = document.getElementById("info_area");
@@ -898,11 +1187,11 @@ export function Map() {
                                 
                                 // now we load the weather
                                 var weather = null;
-                                if (stopsWeatherCache[stopName]) {
-                                    weather = stopsWeatherCache[stopName];
+                                if (stopsWeatherCache[shapeName]) {
+                                    weather = stopsWeatherCache[shapeName];
                                 } else {
                                     weather = await fetchWeatherData(stopCoordinates[1], stopCoordinates[0]);
-                                    stopsWeatherCache[stopName] = weather
+                                    stopsWeatherCache[shapeName] = weather
                                 }
                                 if (weather !== null) {
                                     // div for current conditions
@@ -1008,6 +1297,26 @@ export function Map() {
                 }
             }
 
+            // render the map mask
+            function renderMask() {
+                if (region !== "Canada") {
+                    const mask = turf.polygon([REGION_CROPS[region]["bounds"]]);
+                    map.addSource('map-mask', {
+                        'type': 'geojson',
+                        "data": polyMask(mask)
+                    });
+                    map.addLayer({
+                        'id': 'map-mask',
+                        'type': 'fill',
+                        'source': 'map-mask',
+                        "paint": {
+                          "fill-color": MAP_MASK_COLOR,
+                          'fill-opacity': 1.0
+                        }
+                    });
+                }
+            }
+
             // ====================== Render layers ====================== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
@@ -1017,11 +1326,23 @@ export function Map() {
             renderTrackOverlays(sortedTrackOverlaySegments);
             renderTrains();
             renderStops();
+            renderMask();
             // =========================== END =========================== //
 
+            // log counters
+            console.log("[INFO]: Total layers: " + layerCounter);
+            console.log("[INFO]: ----> Route layers: " + routeLayers);
+            console.log("[INFO]: ----> Overlay layers: " + overlayLayers);
+            console.log("[INFO]: ----> Train layers: " + trainLayers);
+            console.log("[INFO]: ----> Stop layers: " + stopLayers);
+
+
+            console.log("[INFO]: Total routes: " + totalRoutes);
+            console.log("[INFO]: Total stops : " + totalStops);
             console.log("[INFO]: Total trains: " + totalTrains);
-            console.log("[INFO]: Total trains at stops: " + totalTrainsAtStops);
-            console.log("[INFO]: Total trains moving: " + totalTrainsMoving);
+            console.log("[INFO]: ----> Trains at stops: " + totalTrainsAtStops);
+            console.log("[INFO]: ----> Trains moving: " + totalTrainsMoving);
+
             setLoading(false);
         });
 
