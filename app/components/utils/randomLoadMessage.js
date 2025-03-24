@@ -15,7 +15,7 @@ export function RandomLoadMessage() {
     ];
 
     function getRandomMessage() {
-        const rand = Math.round(Math.random() * MESSAGES.length - 1);
+        const rand = Math.floor(Math.random() * MESSAGES.length);
         return MESSAGES[rand];
     }
     

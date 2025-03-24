@@ -19,6 +19,7 @@ export function Map({ region }) {
     const FLY_TO_ZOOM = 12.0;
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const MAXIMUM_TIME_IN_MINUTES_BEFORE_FIRST_STOP = 120;
 
     // https://maps.co/gis/
     // https://www.latlong.net/
@@ -447,7 +448,7 @@ export function Map({ region }) {
         if (stopTimes.length === 0) return;
 
         // var today = new Date("2025-03-06");
-        // today.setHours(14);
+        // today.setHours(7);
         // today.setMinutes(20);
         var today = new Date();
         var day = today.getDay();
@@ -529,6 +530,16 @@ export function Map({ region }) {
         //      ...
         // }
         var layerReference = {};
+
+
+        // {
+        //      "stopId": [
+        //          { "tripId": time }
+        //          ...
+        //      ]
+        //      ...
+        // }
+        var stopTrainSchedule = {};
 
         var totalRoutes = 0;
         var totalStops = 0;
@@ -623,6 +634,13 @@ export function Map({ region }) {
                 const stopDataLength = Object.keys(stopData).length;
                 const currentTimeMinutes = (today.getHours() * 60) + today.getMinutes();
                 
+                const firstArriveTime = stopData[0]["arrivalTime"];
+                const firstArriveTimeMinutes = (firstArriveTime.getHours() * 60) + firstArriveTime.getMinutes();
+                if (firstArriveTimeMinutes - currentTimeMinutes > MAXIMUM_TIME_IN_MINUTES_BEFORE_FIRST_STOP) {
+                    console.log("[INFO]: Skipping train " + tripId + " because the start time is outside the maximum allowed");
+                    continue; // L0
+                }
+                
                 const lastDepartTime = stopData[stopDataLength - 1]["departureTime"];
                 const lastDepartTimeMinutes = (lastDepartTime.getHours() * 60) + lastDepartTime.getMinutes();
                 if (currentTimeMinutes > lastDepartTimeMinutes) {
@@ -658,6 +676,45 @@ export function Map({ region }) {
                     }
                 }
 
+                // add all of this train's stops into the stop schedule
+                for (const data in stopData) {
+                    const arrivalTime = stopData[data]["arrivalTime"];
+                    const stopId = stopData[data]["stopId"];
+                    if (!stopTrainSchedule[stopId]) {
+                        stopTrainSchedule[stopId] = [];
+                        var obj = {};
+                        obj[tripId] = arrivalTime;
+                        stopTrainSchedule[stopId].push(obj);
+                    } else {
+                        // compare existing times with this train's arrival time
+                        // prepend / append this train
+                        // delete train stations up to this stop
+                        for (let i = 0; i < stopTrainSchedule[stopId].length; i++) {
+                            var added = false;
+                            const existingTrip = stopTrainSchedule[stopId][i];
+                            for (const theTrip in existingTrip) {
+                                const existingTime = existingTrip[theTrip];
+                                const existingTimeMinutes = (existingTime.getHours() * 60) + existingTime.getMinutes();
+                                const arrivalTimeMinutes = (arrivalTime.getHours() * 60) + arrivalTime.getMinutes();
+                                if (existingTimeMinutes > arrivalTimeMinutes) {
+                                    // insert before this one
+                                    var obj = {};
+                                    obj[tripId] = arrivalTime;
+                                    stopTrainSchedule[stopId].splice(i, 0, obj);
+                                    added = true;
+                                } else if (i + 1 >= stopTrainSchedule[stopId].length) {
+                                    var obj = {};
+                                    obj[tripId] = arrivalTime;
+                                    // this is last item in array, insert here
+                                    stopTrainSchedule[stopId].push(obj);
+                                    added = true;
+                                }
+                            }
+                            if (added) break;
+                        }
+                    }
+                }
+
                 let trainCoordinates = [0, 0];
                 let trainIsMoving = false;
                 // *** L1
@@ -666,6 +723,8 @@ export function Map({ region }) {
                     const departTime = stopData[i]["departureTime"];
                     const departTimeMinutes = (departTime.getHours() * 60) + departTime.getMinutes();
                     if (currentTimeMinutes >= departTimeMinutes) {
+                        const stopId = stopData[i]["stopId"];
+
                         if (hasNoDistances) {
                             // test next stop
                             if (i + 1 < stopDataLength) {
@@ -676,7 +735,7 @@ export function Map({ region }) {
                             trainIsMoving = true;
                             // delete distances up to the last-known stop
                             // first we need to find the closest drawable train coordinate to this stop's coordinates
-                            const stopCoordinates = stops[stopData[i]["stopId"]]["coordinates"];
+                            const stopCoordinates = stops[stopId]["coordinates"];
                             const allCoords = trains[tripId]["allCoordinates"];
                             var bestCoord = [0, 0];
                             var bestResult = 2 ** 32 - 1;
@@ -692,6 +751,16 @@ export function Map({ region }) {
                                 }
                             }
                             trainCoordinates = bestCoord;
+                            // delete train stations up to this stop
+                            for (const trip of stopTrainSchedule[stopId]) {
+                                for (const id in trip) {
+                                    if (id === tripId) {
+                                        console.log("Delete schedule: " + tripId + ": " + stopId);
+                                        delete trip[id];
+                                        break;
+                                    }
+                                }
+                            }
                             // delete remainingCoordinates up to this distance
                             // *** L3
                             for (const distance in remainingCoordinates) {
@@ -705,6 +774,16 @@ export function Map({ region }) {
                             }
                         } else if (currentTimeMinutes > departTimeMinutes) {
                             // train has left this station
+                            // delete train stations up to this stop
+                            for (const trip of stopTrainSchedule[stopId]) {
+                                for (const id in trip) {
+                                    if (id === tripId) {
+                                        console.log("Delete schedule: " + tripId + ": " + stopId);
+                                        delete trip[id];
+                                        break;
+                                    }
+                                }
+                            }
                             continue; // L1
                         }
                     }
@@ -1213,10 +1292,27 @@ export function Map({ region }) {
                                 stopInfoConstant.id = stopId + "_menu_p_constant";
                                 var constantInfoStringBuilder = "";
                                 constantInfoStringBuilder = "<b>Stop ID</b><br>" + stopId;
-                                constantInfoStringBuilder += "<br><br>"
+                                constantInfoStringBuilder += "<br><br>";
+
+                                // train schedule
+                                const schedule = stopTrainSchedule[stopId];
+                                var hasTrains = false;
+                                constantInfoStringBuilder += "<b>Scheduled Trains</b>";
+                                for (const scheduledTrain of schedule) {
+                                    for (const tripId in scheduledTrain) {
+                                        const hours = String(scheduledTrain[tripId].getHours()).padStart(2, "0");
+                                        const minutes = String(scheduledTrain[tripId].getMinutes()).padStart(2, "0");
+                                        constantInfoStringBuilder += "<br>" + hours + ":" + minutes + " - " + tripId;
+                                        hasTrains = true;
+                                    }
+                                }
+                                if (!hasTrains) constantInfoStringBuilder += "<br>No trains scheduled";
+                                constantInfoStringBuilder += "<br><br>";
+
+                                // weather placholder
                                 constantInfoStringBuilder += "<b>Current Weather</b><br>";
                                 stopInfoConstant.innerHTML = constantInfoStringBuilder;
-                                
+
                                 // new element for stop weather info
                                 const stopInfoWeather = document.createElement("div");
                                 stopInfoWeather.innerHTML = WEATHER_LOADING_PLACEHOLDER;
@@ -1244,7 +1340,7 @@ export function Map({ region }) {
                                     nowIconImg.src = weather["now"]["icon"];
                                     nowIconImg.width = 32;
                                     nowIconImg.height = 32;
-                                    nowIconImg.className = "size-fit flex flex-row justify-left text-left place-content-center grow-0 shrink-0"
+                                    nowIconImg.className = "size-fit flex flex-row justify-left text-left place-content-center"
 
                                     // text
                                     const nowTextDiv = document.createElement("div");
@@ -1290,7 +1386,7 @@ export function Map({ region }) {
                                         forecastDayIconImg.src = ref["icon"];
                                         forecastDayIconImg.width = 20;
                                         forecastDayIconImg.height = 20;
-                                        forecastDayIconImg.className = "size-fit flex flex-row justify-left text-left place-content-center grow-0 shrink-0";
+                                        forecastDayIconImg.className = "size-fit flex flex-row justify-left text-left place-content-center";
 
                                         // text
                                         const forecastDayTextDiv = document.createElement("div");
@@ -1338,6 +1434,7 @@ export function Map({ region }) {
                 }
             }
 
+
             // ====================== Render layers ====================== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
@@ -1349,13 +1446,13 @@ export function Map({ region }) {
             renderStops();
             // =========================== END =========================== //
 
+
             // log counters
             console.log("[INFO]: Total layers: " + layerCounter);
             console.log("[INFO]: ----> Route layers: " + routeLayers);
             console.log("[INFO]: ----> Overlay layers: " + overlayLayers);
             console.log("[INFO]: ----> Train layers: " + trainLayers);
             console.log("[INFO]: ----> Stop layers: " + stopLayers);
-
 
             console.log("[INFO]: Total routes: " + totalRoutes);
             console.log("[INFO]: Total stops : " + totalStops);
