@@ -296,8 +296,8 @@ export function Map({ region }) {
     // use this for debug (or ~8 trains/track)
     const LINE_COLOR_GRADIENT = {
         0: "#00ff00",
-        2: "#66ff00",
-        4: "#ffee00",
+        2: "#aaff00",
+        4: "#ffcc00",
         6: "#ff2200",
         8: "#000000"
     }
@@ -438,8 +438,9 @@ export function Map({ region }) {
     }
 
     useEffect(() => {
-        if (!regionCheck(region)) return;
         console.log("[INFO]: Load map for region: " + region);
+        if (!regionCheck(region)) return;
+
         resetTrainMenu();
         resetInfoMenu();
 
@@ -467,31 +468,6 @@ export function Map({ region }) {
             "maxBounds": REGIONS[region]["mapBounds"],
             "zoom": lastZoom
         });
-
-        // reenable if required
-        // map["doubleClickZoom"].disable();
-        map["dragRotate"].disable(); // very laggy
-        // map["keyboard"].disable();
-        // map["touchZoomRotate"].disable();
-        
-        // map.getCanvas().style.cursor = 'pointer';
-
-        map.addInteraction("map_click", {
-            type: "click",
-            handler: ({feature}) => {
-                resetInfoMenu();
-                // update current zoom / center
-                setLastZoom(map.getZoom());
-                setLastCenter(map.getCenter());
-            }
-        });
-        
-        map.addControl(new mapboxgl.FullscreenControl());
-
-        // update current center
-        map.on("moveend", () => { setLastCenter(map.getCenter()); });
-        // update current zoom
-        map.on("zoomend", () => { setLastZoom(map.getZoom()); });
 
         // {
         //      "trainId": [allCoordinates],
@@ -524,7 +500,7 @@ export function Map({ region }) {
 
         // {
         //      "uuid": {
-        //          "type": [overlay/route/stop/train]
+        //          "type": [overlay/route_bottom/route_top/stop/train]
         //          "id": 123
         //      },
         //      ...
@@ -541,6 +517,14 @@ export function Map({ region }) {
         // }
         var stopTrainSchedule = {};
 
+        // remaining coordinates left on this train's trip
+        // {
+        //      tripId: {
+        //          "distance": distanceCoordinates
+        //      }
+        // }
+        var remainingCoordinates = {};
+
         var totalRoutes = 0;
         var totalStops = 0;
         var totalTrains = 0;
@@ -554,11 +538,55 @@ export function Map({ region }) {
             }
         }
 
+        function setLayerVisibility(layerTypeIn, layerIdIn, isVisible) {
+            // isVisible - 0 = false, 1 = true, else = toggle
+            for (const uuid in layerReference) {
+                const type = layerReference[uuid]["type"];
+                if (layerTypeIn === type) {
+                    const id = layerReference[uuid]["id"];
+                    if (layerIdIn !== null && layerIdIn !== id) continue;
+                    const currentVisibility = (map.getLayoutProperty(uuid, "visibility") === "visible");
+                    const nextVisibility = (isVisible === 0 ? false : (isVisible === 1 ? true : !currentVisibility));
+                    console.log("[INFO]: Change visibility for layer " + type + ":" + id + " to " + nextVisibility);
+                    map.setLayoutProperty(uuid, "visibility", (nextVisibility ? "visible" : "none"));
+                    if (layerIdIn !== null && layerIdIn === id) return nextVisibility;
+                }
+            }
+        }
+
         const canUseFullMap = (region === "Canada");
         const bounds = REGIONS[region]["bounds"];
         function isPointInBounds(point) {
             return turf.booleanPointInPolygon(turf.point(point), turf.polygon([bounds]));
         }
+
+        // reenable if required
+        // map["doubleClickZoom"].disable();
+        map["dragRotate"].disable(); // very laggy
+        // map["keyboard"].disable();
+        // map["touchZoomRotate"].disable();
+        
+        // map.getCanvas().style.cursor = 'pointer';
+
+        map.addInteraction("map_click", {
+            type: "click",
+            handler: ({ feature }) => {
+                console.log("[INFO]: Clicked map");
+                resetInfoMenu();
+                // update current zoom / center
+                setLastZoom(map.getZoom());
+                setLastCenter(map.getCenter());
+                setLayerVisibility("route_top", null, 0);
+            }
+        });
+        
+        map.addControl(new mapboxgl.FullscreenControl());
+
+        // update current center
+        map.on("moveend", () => { setLastCenter(map.getCenter()); });
+        // update current zoom
+        map.on("zoomend", () => { setLastZoom(map.getZoom()); });
+
 
         // ==================== on map load ==================== //
         map.on("load", () => {
@@ -663,8 +691,17 @@ export function Map({ region }) {
                 }
                 const trainDistanceCoordinates = trains[tripId]["distanceCoordinates"];
 
-                // remaining coordinates left on this train's trip
-                const remainingCoordinates = trains[tripId]["distanceCoordinates"];
+                if (canUseFullMap) {
+                    remainingCoordinates[tripId] = trains[tripId]["distanceCoordinates"];
+                } else {
+                    for (const distance in trains[tripId]["distanceCoordinates"]) {
+                        const coordinate = trains[tripId]["distanceCoordinates"][distance];
+                        if (isPointInBounds(coordinate)) {
+                            if (!remainingCoordinates[tripId]) remainingCoordinates[tripId] = {};
+                            remainingCoordinates[tripId][distance] = coordinate; 
+                        }
+                    }
+                }
 
                 // *** L0
                 var hasNoDistances = false;
@@ -755,7 +792,6 @@ export function Map({ region }) {
                             for (const trip of stopTrainSchedule[stopId]) {
                                 for (const id in trip) {
                                     if (id === tripId) {
-                                        console.log("Delete schedule: " + tripId + ": " + stopId);
                                         delete trip[id];
                                         break;
                                     }
@@ -763,11 +799,11 @@ export function Map({ region }) {
                             }
                             // delete remainingCoordinates up to this distance
                             // *** L3
-                            for (const distance in remainingCoordinates) {
-                                const flag = remainingCoordinates[distance][0] != bestCoord[0];
-                                const flag1 = remainingCoordinates[distance][1] != bestCoord[1];
+                            for (const distance in remainingCoordinates[tripId]) {
+                                const flag = remainingCoordinates[tripId][distance][0] != bestCoord[0];
+                                const flag1 = remainingCoordinates[tripId][distance][1] != bestCoord[1];
                                 if (flag && flag1) {
-                                    delete remainingCoordinates[distance];
+                                    delete remainingCoordinates[tripId][distance];
                                 } else {
                                     break; // L3
                                 }
@@ -778,7 +814,6 @@ export function Map({ region }) {
                             for (const trip of stopTrainSchedule[stopId]) {
                                 for (const id in trip) {
                                     if (id === tripId) {
-                                        console.log("Delete schedule: " + tripId + ": " + stopId);
                                         delete trip[id];
                                         break;
                                     }
@@ -801,9 +836,9 @@ export function Map({ region }) {
                             trainCoordinates = stops[stopId]["coordinates"];
 
                             // delete coordinates up to this distance in remainingCoordinates
-                            for (const distance in remainingCoordinates) {
+                            for (const distance in remainingCoordinates[tripId]) {
                                 if (parseFloat(distance) < parseFloat(stopData[i]["distance"])) {
-                                    delete remainingCoordinates[distance];
+                                    delete remainingCoordinates[tripId][distance];
                                 }
                             }
                         } else {
@@ -832,9 +867,9 @@ export function Map({ region }) {
                                 if (flag) {
                                     // delete remainingCoordinates up to this distance
                                     // *** L4
-                                    for (const distance in remainingCoordinates) {
+                                    for (const distance in remainingCoordinates[tripId]) {
                                         if (parseFloat(distance) < lastDist) {
-                                            delete remainingCoordinates[distance];
+                                            delete remainingCoordinates[tripId][distance];
                                         } else {
                                             break; // L4
                                         }
@@ -862,30 +897,28 @@ export function Map({ region }) {
 
                 // Function to process coordinates and update tracking
                 function processCoordinatePair(a0, a1, b0, b1) {
-                    if (canUseFullMap || (isPointInBounds([a0, a1]) && isPointInBounds([b0, b1]))) {
-                        const forwardKey = `${a0},${a1},${b0},${b1}`;
-                        const reverseKey = `${b0},${b1},${a0},${a1}`;
-                        if (forwardKey in trackOverlaySegments) {
-                            if (!trackOverlaySegments[forwardKey]["trains"].includes(tripId)) {
-                                trackOverlaySegments[forwardKey]["trains"].push(tripId);
-                            }
-                        } else if (reverseKey in trackOverlaySegments) {
-                            if (!trackOverlaySegments[reverseKey]["trains"].includes(tripId)) {
-                                trackOverlaySegments[reverseKey]["trains"].push(tripId);
-                            }
-                        } else {
-                            // add unique point
-                            trackOverlaySegments[forwardKey] = {};
-                            trackOverlaySegments[forwardKey]["trains"] = [tripId];
-                            trackOverlaySegments[forwardKey]["from"] = [a0, a1];
-                            trackOverlaySegments[forwardKey]["to"] = [b0, b1];
+                    const forwardKey = `${a0},${a1},${b0},${b1}`;
+                    const reverseKey = `${b0},${b1},${a0},${a1}`;
+                    if (forwardKey in trackOverlaySegments) {
+                        if (!trackOverlaySegments[forwardKey]["trains"].includes(tripId)) {
+                            trackOverlaySegments[forwardKey]["trains"].push(tripId);
                         }
+                    } else if (reverseKey in trackOverlaySegments) {
+                        if (!trackOverlaySegments[reverseKey]["trains"].includes(tripId)) {
+                            trackOverlaySegments[reverseKey]["trains"].push(tripId);
+                        }
+                    } else {
+                        // add unique point
+                        trackOverlaySegments[forwardKey] = {};
+                        trackOverlaySegments[forwardKey]["trains"] = [tripId];
+                        trackOverlaySegments[forwardKey]["from"] = [a0, a1];
+                        trackOverlaySegments[forwardKey]["to"] = [b0, b1];
                     }
                 }
 
                 let lastCoordinate = null;
-                for (const distance in remainingCoordinates) {
-                    const coordinate = remainingCoordinates[distance];
+                for (const distance in remainingCoordinates[tripId]) {
+                    const coordinate = remainingCoordinates[tripId][distance];
                     if (lastCoordinate) {
                         processCoordinatePair(lastCoordinate[0], lastCoordinate[1], coordinate[0], coordinate[1]);
                     }
@@ -930,6 +963,9 @@ export function Map({ region }) {
                         innerHtml += "<b>Status</b><br>" + (moving ? "Enroute to next station" : "Stopped at station");
                         infoArea.innerHTML = innerHtml;
 
+                        setLayerVisibility("route_top", null, 0);
+                        setLayerVisibility("route_top", this.id, 1);
+
                         // center map onto train
                         map.flyTo({
                             "center": coordinates,
@@ -951,25 +987,14 @@ export function Map({ region }) {
                     toggleLink.onclick = function (e) {
                         e.preventDefault();
                         e.stopPropagation();
-
-                        for (const entry in layerReference) {
-                            const type = layerReference[entry]["type"];
-                            const id = layerReference[entry]["id"];
-                            if (type === "train" && id === this.id) {
-                                const trainVisibility = map.getLayoutProperty(entry, "visibility");
-                                if (trainVisibility === "visible") {
-                                    console.log("[INFO]: Disabling visibility for train " + this.id);
-                                    map.setLayoutProperty(entry, "visibility", "none");
-                                    this.className = "map_menu_item_inactive";
-                                    toggleLink.textContent = "Show";
-                                } else {
-                                    console.log("[INFO]: Enabling visibility for train " + this.id);
-                                    map.setLayoutProperty(entry, "visibility", "visible");
-                                    this.className = "map_menu_item_active";
-                                    toggleLink.textContent = "Hide";
-                                }
-                                break;
-                            }
+                        
+                        const result = setLayerVisibility("train", this.id, 2);
+                        if (result) {
+                            this.className = "map_menu_item_active";
+                            toggleLink.textContent = "Hide";
+                        } else {
+                            this.className = "map_menu_item_inactive";
+                            toggleLink.textContent = "Show";    
                         }
                     };
 
@@ -1002,14 +1027,30 @@ export function Map({ region }) {
             var trainLayers = 0;
             var stopLayers = 0;
 
-            function renderRoutes() {
-                for (const tripId in routeShapesToRender) {
+            function renderRoutes(isBottom, source) {
+                const isVisible = (isBottom ? "visible" : "none");
+                var sourceToUse = source;
+                // source is remainingCoordinates
+                // convert { trainId: { distance : coordinates } }
+                // to
+                // { trainId: [[coord,coord], [coord, coord], ...]
+                if (!isBottom) {
+                    var out = {};
+                    for (const trainId in source) {
+                        if (!out[trainId]) out[trainId] = [];
+                        for (const distance in source[trainId]) {
+                            out[trainId].push(source[trainId][distance]);
+                        }
+                    }
+                    sourceToUse = out;
+                }
+                for (const tripId in sourceToUse) {
                     layerCounter++;
                     routeLayers++;
                     // - draw this train's shape
                     const shapeName = getUUIDForLayer();
                     layerReference[shapeName] = {};
-                    layerReference[shapeName]["type"] = "route";
+                    layerReference[shapeName]["type"] = "route" + (isBottom ? "_bottom" : "_top");
                     layerReference[shapeName]["id"] = tripId;
                     map.addSource(shapeName, {
                         "type": "geojson",
@@ -1018,7 +1059,7 @@ export function Map({ region }) {
                             "properties": {},
                             "geometry": {
                                 "type": "LineString",
-                                "coordinates": routeShapesToRender[tripId]
+                                "coordinates": sourceToUse[tripId]
                             },
                             "id": shapeName
                         }
@@ -1029,14 +1070,15 @@ export function Map({ region }) {
                         "slot": "bottom",
                         "source": shapeName,
                         "layout": {
-                            "visibility": "visible",
+                            "visibility": isVisible,
                             "line-join": "round",
                             "line-cap": "round"
                         },
                         "paint": {
                             "line-opacity": 1.0,
-                            "line-color": "#808080",
-                            "line-width": 1.5
+                            "line-color": isBottom ? "#808080" : "#00afff",
+                            "line-width": isBottom ? 1.5 : 3.0,
+                            "line-gap-width": isBottom ? 0 : 8,
                         },
                     });
                 }
@@ -1130,7 +1172,7 @@ export function Map({ region }) {
                         "paint": {
                             "line-opacity": 1.0,
                             "line-color": getTrainHightlightColor(numberOfTrains),
-                            "line-width": 5
+                            "line-width": 7.5
                         }
                     });
 
@@ -1215,15 +1257,17 @@ export function Map({ region }) {
                             type: "click",
                             target: { layerId: shapeName },
                             handler: async ({ feature }) => {
-                                console.log("[INFO]: Clicked train: " + layerReference[shapeName]["id"]);
+                                console.log("[INFO]: Clicked train: " + tripId);
                                 const infoArea = document.getElementById("info_area");
                                 var innerHtml = "";
-                                innerHtml += "<b>Train ID</b><br>" + layerReference[shapeName]["id"];
+                                innerHtml += "<b>Train ID</b><br>" + tripId;
                                 innerHtml += "<br><br>"
                                 innerHtml += "<b>Location</b><br>" + "Lon: " + trainCoordinates[0] + "<br>" + "Lat: " + trainCoordinates[1];
                                 innerHtml += "<br><br>"
                                 innerHtml += "<b>Status</b><br>" + (trainIsMoving ? "Enroute to next station" : "Stopped at station");
                                 infoArea.innerHTML = innerHtml;
+                                setLayerVisibility("route_top", null, 0);
+                                setLayerVisibility("route_top", tripId, 1);
                             }
                         });
                     }
@@ -1238,7 +1282,7 @@ export function Map({ region }) {
                     const shapeName = getUUIDForLayer();
                     layerReference[shapeName] = {};
                     layerReference[shapeName]["type"] = "stop";
-                    layerReference[shapeName]["id"] = tripId;
+                    layerReference[shapeName]["id"] = stopId;
                     map.addSource(shapeName, {
                         "type": "geojson",
                         "data": {
@@ -1277,7 +1321,7 @@ export function Map({ region }) {
                             type: "click",
                             target: { layerId: shapeName },
                             handler: async ({ feature }) => {
-                                console.log("[INFO]: Clicked stop: " + layerReference[shapeName]["id"]);
+                                console.log("[INFO]: Clicked stop: " + stopId);
                                 
                                 // clear the info area
                                 const infoArea = document.getElementById("info_area");
@@ -1440,8 +1484,9 @@ export function Map({ region }) {
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ========================== START ========================== //
-            renderRoutes();
+            renderRoutes(true, routeShapesToRender);
             renderTrackOverlays(sortedTrackOverlaySegments);
+            renderRoutes(false, remainingCoordinates);
             renderTrains();
             renderStops();
             // =========================== END =========================== //
