@@ -447,11 +447,14 @@ export function Map({ region }) {
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
-        // var today = new Date("2025-03-06");
-        // today.setHours(7);
-        // today.setMinutes(20);
+        // remember: day starts at 0
+        // month and year as normal
+        // var today = new Date("2025-03-25");
+        // today.setHours(15);
+        // today.setMinutes(0);
         var today = new Date();
         var day = today.getDay();
+        console.log("[INFO]: The system time is " + String(today));
 
         const canUseFullMap = (region === "Canada");
         const bounds = REGIONS[region]["bounds"];
@@ -586,11 +589,11 @@ export function Map({ region }) {
         map.on("load", () => {
 
             // add button to reset the map
-            if (document.getElementById("resetMapButton")) document.getElementById("resetMapButton").remove();
+            if (document.getElementById("recenterMapButton")) document.getElementById("recenterMapButton").remove();
             const mapActions = document.getElementById("mapActions");
-            const resetMap = document.createElement("a");
-            resetMap.id = "resetMapButton";
-            resetMap.onclick = function(e) {
+            const recenterMap = document.createElement("a");
+            recenterMap.id = "recenterMapButton";
+            recenterMap.onclick = function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 setLastZoom(REGIONS[region]["zoom"]);
@@ -604,10 +607,10 @@ export function Map({ region }) {
                     "essential": false
                 });
             };
-            resetMap.className = "dark_button_mini";
-            resetMap.href = "";
-            resetMap.textContent = "Reset Map";
-            mapActions.prepend(resetMap);
+            recenterMap.className = "dark_button_mini";
+            recenterMap.href = "";
+            recenterMap.textContent = "Recenter Map";
+            mapActions.prepend(recenterMap);
 
             // keep track of the stops that we have already added to the map
             var addedStops = [];
@@ -763,7 +766,7 @@ export function Map({ region }) {
                             if (i + 1 < stopDataLength) {
                                 const nextDepartTime = stopData[i + 1]["departureTime"];
                                 const nextDepartTimeMinutes = (nextDepartTime.getHours() * 60) + nextDepartTime.getMinutes();
-                                if (currentTimeMinutes > nextDepartTimeMinutes) continue; // L1
+                                if (currentTimeMinutes >= nextDepartTimeMinutes) continue; // L1
                             }
                             trainIsMoving = true;
                             // delete distances up to the last-known stop
@@ -1320,14 +1323,16 @@ export function Map({ region }) {
                                 const schedule = stopTrainSchedule[stopId];
                                 var hasTrains = false;
                                 constantInfoStringBuilder += "<b>Scheduled Trains</b>";
-                                for (const scheduledTrain of schedule) {
-                                    for (const tripId in scheduledTrain) {
-                                        const scheduleHours = scheduledTrain[tripId].getHours();
-                                        const scheduleMinutes = scheduledTrain[tripId].getMinutes();
-                                        const hours = String(scheduleHours).padStart(2, "0");
-                                        const minutes = String(scheduleMinutes).padStart(2, "0");
-                                        constantInfoStringBuilder += "<br>" + hours + ":" + minutes + " - " + tripId;
-                                        hasTrains = true;
+                                if (schedule) {
+                                    for (const scheduledTrain of schedule) {
+                                        for (const tripId in scheduledTrain) {
+                                            const scheduleHours = scheduledTrain[tripId].getHours();
+                                            const scheduleMinutes = scheduledTrain[tripId].getMinutes();
+                                            const hours = String(scheduleHours).padStart(2, "0");
+                                            const minutes = String(scheduleMinutes).padStart(2, "0");
+                                            constantInfoStringBuilder += "<br>" + hours + ":" + minutes + " - " + tripId;
+                                            hasTrains = true;
+                                        }
                                     }
                                 }
                                 if (!hasTrains) constantInfoStringBuilder += "<br>No trains scheduled";
