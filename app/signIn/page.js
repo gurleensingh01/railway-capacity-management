@@ -38,7 +38,7 @@ export default function SignInPage() {
       }
 
       // Redirect to dashboard with location
-      router.push(`/dashboard?location=${location}`);
+      router.push(`/dashboard`);
     } catch (error) {
       setError(error.message || "Invalid email or password.");
     } finally {

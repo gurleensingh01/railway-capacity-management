@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../components/utils/firebase"; // Import Firebase
 import { doc, getDoc } from "firebase/firestore";
-
+import { RandomLoadMessage } from "../components/utils/randomLoadMessage.js";
 import { KPI } from "../components/kpi.js";
 import { Map } from "../components/map.js";
 import { Sidebar } from "../components/sidebar.js";
@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
     while (true) {
         if (!isAuthenticated) {
-            return <p className="text-center text-lg font-bold">Redirecting to sign in...</p>;
+            return <RandomLoadMessage/>;
         } else {
             if (userLocation !== null && userLocation !== undefined && userLocation !== "Unknown") {
                 return (

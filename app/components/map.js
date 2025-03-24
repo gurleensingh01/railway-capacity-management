@@ -11,34 +11,21 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import "../styles.css";
 
 export function Map({ region }) {
-    const ROUTE_PREFIX = "route_";
-    const STOP_PREFIX = "stop_";
-    const TRAIN_PREFIX = "train_";
-    const OVERLAY_PREFIX = "overlay_";
-    const TRAIN_LOCATOR_SUFFIX = "_locator";
-    const TRAIN_TOGGLE_SUFFIX = "_toggle";
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const WEATHER_FAILED_TEXT = "Could not get weather data.";
     const INFO_PANEL_DEFAULT_INNERHTML = "Click on a route, stop <br/>or train to view its <br/>information.";
-    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 7.0;
-    const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 4.5;
-    const MAP_MASK_COLOR = "#223B34";
-    const FLY_TO_ZOOM = 11.5;
+    const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 8.75;
+    const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 6.0;
+    const FLY_TO_ZOOM = 12.0;
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-    const MAP_BOUNDS_SW = [-178.330078125, 1.5818302639606];
-    const MAP_BOUNDS_NE = [-0.791015625, 84.818373372456];
-
-    function polyMask(mask) {
-        const bounds = [MAP_BOUNDS_SW[0], MAP_BOUNDS_SW[1], MAP_BOUNDS_NE[0], MAP_BOUNDS_NE[1]];
-        var bboxPoly = turf.bboxPolygon(bounds);
-        return turf.difference(turf.featureCollection([bboxPoly, mask]));
-    }
-
-    const REGION_CROPS = {
+    // https://maps.co/gis/
+    // https://www.latlong.net/
+    const REGIONS = {
         "Alberta": {
             "center": [-114.640730675, 54.186885590834],
+            "mapBounds": [-121.6026345158, 47.452382810016, -108.6827126408, 61.011836282047],
             "zoom": 6.0,
             "bounds": [
                 [-120.04522932891, 60.045707540494],
@@ -64,6 +51,7 @@ export function Map({ region }) {
         },
         "British Columbia": {
             "center": [-124.19726803433, 53.989939178708],
+            "mapBounds": [-144.2868289278, 46.351642089026, -111.712714, 60.951777],
             "zoom": 6.0,
             "bounds": [
                 [-119.93094032392, 60.05858764831],
@@ -104,6 +92,7 @@ export function Map({ region }) {
         },
         "Manitoba": {
             "center": [-97.459692261564, 54.943038985553],
+            "mapBounds": [-104.29551738088, 47.437077932288, -85.926376755885, 61.00086710281],
             "zoom": 6.0,
             "bounds": [
                 [-101.99803881265, 60.053063072229],
@@ -122,7 +111,8 @@ export function Map({ region }) {
         },
         "Ontario": {
             "center": [-84.421392102932, 49.554949932766],
-            "zoom": 6.0,
+            "mapBounds": [-104.060463, 35.532226, -66.131268, 58.950008],
+            "zoom": 4.75,
             "bounds": [
                 [-88.852797535494, 56.919157397015],
                 [-95.224867847994, 52.853829263575],
@@ -173,6 +163,7 @@ export function Map({ region }) {
         },
         "Quebec": {
             "center": [-71.559202900364, 51.883013636605],
+            "mapBounds": [-83.679777010964, 39.088074734636, -51.248136385964, 63.661251403365],
             "zoom": 6.0,
             "bounds": [
                 [-64.634989557155, 60.483892108194],
@@ -250,6 +241,7 @@ export function Map({ region }) {
         },
         "Saskatchewan": {
             "center": [-105.89804558466, 54.619051900282],
+            "mapBounds": [-111.82191689034, 47.756885678843, -98.901995015341, 61.440749880093],
             "zoom": 6.0,
             "bounds": [
                 [-109.99720563921, 60.069383463226],
@@ -262,15 +254,23 @@ export function Map({ region }) {
         },
         "Canada": {
             "center": [-96.911615596645, 58.727691678169],
+            "mapBounds": [-178.330078125, 1.5818302639606, -0.791015625, 84.818373372456],
             "zoom": 2.67
         }
     }
+
+    function polyMask(mask) {
+        const bounds = REGIONS[region]["mapBounds"];
+        var bboxPoly = turf.bboxPolygon(bounds);
+        return turf.difference(turf.featureCollection([bboxPoly, mask]));
+    }
+
 
     function regionCheck(regionIn) {
         if (regionIn === undefined) return false;
         if (regionIn === null) return false;
         if (regionIn === "Unknown") return false;
-        return (regionIn in REGION_CROPS);
+        return (regionIn in REGIONS);
     }
 
     // color gradient
@@ -406,18 +406,12 @@ export function Map({ region }) {
     const [trains, setTrains] = useState([]);
     const [stops, setStops] = useState([]);
     const [stopTimes, setStopTimes] = useState([]);
-    const [lastZoom, setLastZoom] = useState(0.0);
+    const [lastZoom, setLastZoom] = useState(null);
     const [lastCenter, setLastCenter] = useState(null);
     const [loading, setLoading] = useState(false);
     const { setSelectedTrack } = useTrack(); // Track selection context
     var isRouteOnExpandedPage = (pathname === "/map");
     // TODO: auto-refresh would be nice
-    // TODO: mask map
-    // Tutorial:
-    // https://stackoverflow.com/questions/40772764/mask-mapbox-gl-map-with-arbitrary-polygon
-    // draw coordinates:
-    // https://maps.co/gis/
-    // https://docs.mapbox.com/mapbox-gl-js/example/clip-layer/
 
     const fetchLatestData = async () => {
         if (!regionCheck(region)) return;
@@ -430,10 +424,8 @@ export function Map({ region }) {
         setStops(data.stops);
         setStopTimes(data.stopTimes);
 
-        // default zoom level
-        if (lastZoom === 0.0) setLastZoom(REGION_CROPS[region]["zoom"]);
-        // TODO: automatically find center
-        if (!lastCenter) setLastCenter(REGION_CROPS[region]["center"]);
+        if (lastZoom === null) setLastZoom(REGIONS[region]["zoom"]);
+        if (lastCenter === null) setLastCenter(REGIONS[region]["center"]);
     };
 
     function resetTrainMenu() {
@@ -454,11 +446,12 @@ export function Map({ region }) {
         if (stops.length === 0) return;
         if (stopTimes.length === 0) return;
 
-        var today = new Date("2025-03-06");
-        today.setHours(14);
-        today.setMinutes(20);
-        // var today = new Date();
+        // var today = new Date("2025-03-06");
+        // today.setHours(14);
+        // today.setMinutes(20);
+        var today = new Date();
         var day = today.getDay();
+
         // cached weather for stops
         // {
         //      stopId: weatherData
@@ -470,17 +463,17 @@ export function Map({ region }) {
             "container": "map",
             "style": "mapbox://styles/mapbox/light-v9",
             "center": lastCenter,
-            "maxBounds": [MAP_BOUNDS_SW[0], MAP_BOUNDS_SW[1], MAP_BOUNDS_NE[0], MAP_BOUNDS_NE[1]],
+            "maxBounds": REGIONS[region]["mapBounds"],
             "zoom": lastZoom
         });
 
         // reenable if required
-        map["doubleClickZoom"].disable();
-        map["dragRotate"].disable();
-        map["keyboard"].disable();
-        map["touchZoomRotate"].disable();
+        // map["doubleClickZoom"].disable();
+        map["dragRotate"].disable(); // very laggy
+        // map["keyboard"].disable();
+        // map["touchZoomRotate"].disable();
         
-        map.getCanvas().style.cursor = 'pointer';
+        // map.getCanvas().style.cursor = 'pointer';
 
         map.addInteraction("map_click", {
             type: "click",
@@ -491,6 +484,8 @@ export function Map({ region }) {
                 setLastCenter(map.getCenter());
             }
         });
+        
+        map.addControl(new mapboxgl.FullscreenControl());
 
         // update current center
         map.on("moveend", () => { setLastCenter(map.getCenter()); });
@@ -538,8 +533,6 @@ export function Map({ region }) {
         var totalRoutes = 0;
         var totalStops = 0;
         var totalTrains = 0;
-        var totalTrainsAtStops = 0;
-        var totalTrainsMoving = 0;
 
         function getUUIDForLayer() {
             while (true) {
@@ -550,8 +543,38 @@ export function Map({ region }) {
             }
         }
 
+        const canUseFullMap = (region === "Canada");
+        const bounds = REGIONS[region]["bounds"];
+        function isPointInBounds(point) {
+            return turf.booleanPointInPolygon(turf.point(point), turf.polygon([bounds]));
+        }
+
         // ==================== on map load ==================== //
         map.on("load", () => {
+
+            // add button to reset the map
+            if (document.getElementById("resetMapButton")) document.getElementById("resetMapButton").remove();
+            const mapActions = document.getElementById("mapActions");
+            const resetMap = document.createElement("a");
+            resetMap.id = "resetMapButton";
+            resetMap.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                setLastZoom(REGIONS[region]["zoom"]);
+                setLastCenter(REGIONS[region]["center"]);
+                map.flyTo({
+                    "center": REGIONS[region]["center"],
+                    "zoom": REGIONS[region]["zoom"],
+                    "bearing": 0,
+                    "pitch": 0.0,
+                    "duration": 5000,
+                    "essential": false
+                });
+            };
+            resetMap.className = "dark_button_mini";
+            resetMap.href = "";
+            resetMap.textContent = "Reset Map";
+            mapActions.prepend(resetMap);
 
             // keep track of the stops that we have already added to the map
             var addedStops = [];
@@ -610,7 +633,16 @@ export function Map({ region }) {
                 // ===== This route can be rendered after this point ===== //
                 totalRoutes++;
 
-                routeShapesToRender[tripId] = trains[tripId]["allCoordinates"];
+                if (!canUseFullMap) {
+                    routeShapesToRender[tripId] = [];
+                    for (const coord of trains[tripId]["allCoordinates"]) {
+                        if (isPointInBounds(coord)) {
+                            routeShapesToRender[tripId].push(coord);
+                        }
+                    }
+                } else {
+                    routeShapesToRender[tripId] = trains[tripId]["allCoordinates"];
+                }
                 const trainDistanceCoordinates = trains[tripId]["distanceCoordinates"];
 
                 // remaining coordinates left on this train's trip
@@ -683,7 +715,6 @@ export function Map({ region }) {
                         const arriveTimeMinutes = (arriveTime.getHours() * 60) + arriveTime.getMinutes();
                         // - if current time is more than arrival time
                         if (!hasNoDistances && (currentTimeMinutes >= arriveTimeMinutes || i === 0)) {
-                            totalTrainsAtStops += 1;
                             console.log("[INFO]: Train " + tripId + " is at a stop");
                             // - then the train is at this stop
                             // set trainCoordinates
@@ -697,7 +728,6 @@ export function Map({ region }) {
                                 }
                             }
                         } else {
-                            totalTrainsMoving += 1;
                             trainIsMoving = true;
                             console.log("[INFO]: Train " + tripId + " is moving");
                             // - then the train is enroute to this stop
@@ -737,9 +767,11 @@ export function Map({ region }) {
                     }
                     // draw train dot at this approximate location
                     if (trainCoordinates[0] !== 0 && trainCoordinates[1] !== 0) {
-                        trainShapesToRender[tripId] = {};
-                        trainShapesToRender[tripId]["coordinates"] = trainCoordinates;
-                        trainShapesToRender[tripId]["isMoving"] = trainIsMoving;
+                        if (canUseFullMap || isPointInBounds(trainCoordinates)) {
+                            trainShapesToRender[tripId] = {};
+                            trainShapesToRender[tripId]["coordinates"] = trainCoordinates;
+                            trainShapesToRender[tripId]["isMoving"] = trainIsMoving;
+                        }
                     } else {
                         console.log("[ERROR]: Failed to add train: " + tripId);
                     }
@@ -751,22 +783,24 @@ export function Map({ region }) {
 
                 // Function to process coordinates and update tracking
                 function processCoordinatePair(a0, a1, b0, b1) {
-                    const forwardKey = `${a0},${a1},${b0},${b1}`;
-                    const reverseKey = `${b0},${b1},${a0},${a1}`;
-                    if (forwardKey in trackOverlaySegments) {
-                        if (!trackOverlaySegments[forwardKey]["trains"].includes(tripId)) {
-                            trackOverlaySegments[forwardKey]["trains"].push(tripId);
+                    if (canUseFullMap || (isPointInBounds([a0, a1]) && isPointInBounds([b0, b1]))) {
+                        const forwardKey = `${a0},${a1},${b0},${b1}`;
+                        const reverseKey = `${b0},${b1},${a0},${a1}`;
+                        if (forwardKey in trackOverlaySegments) {
+                            if (!trackOverlaySegments[forwardKey]["trains"].includes(tripId)) {
+                                trackOverlaySegments[forwardKey]["trains"].push(tripId);
+                            }
+                        } else if (reverseKey in trackOverlaySegments) {
+                            if (!trackOverlaySegments[reverseKey]["trains"].includes(tripId)) {
+                                trackOverlaySegments[reverseKey]["trains"].push(tripId);
+                            }
+                        } else {
+                            // add unique point
+                            trackOverlaySegments[forwardKey] = {};
+                            trackOverlaySegments[forwardKey]["trains"] = [tripId];
+                            trackOverlaySegments[forwardKey]["from"] = [a0, a1];
+                            trackOverlaySegments[forwardKey]["to"] = [b0, b1];
                         }
-                    } else if (reverseKey in trackOverlaySegments) {
-                        if (!trackOverlaySegments[reverseKey]["trains"].includes(tripId)) {
-                            trackOverlaySegments[reverseKey]["trains"].push(tripId);
-                        }
-                    } else {
-                        // add unique point
-                        trackOverlaySegments[forwardKey] = {};
-                        trackOverlaySegments[forwardKey]["trains"] = [tripId];
-                        trackOverlaySegments[forwardKey]["from"] = [a0, a1];
-                        trackOverlaySegments[forwardKey]["to"] = [b0, b1];
                     }
                 }
 
@@ -779,87 +813,92 @@ export function Map({ region }) {
                     lastCoordinate = coordinate;
                 }
 
-                // delete existing elements if they exist
-                const trainDivId = tripId + "_menu_div";
-                if (document.getElementById(trainDivId)) document.getElementById(trainDivId).remove();
+                if (canUseFullMap || (trainShapesToRender[tripId] && isPointInBounds(trainShapesToRender[tripId]["coordinates"]))) {
+                    // delete existing elements if they exist
+                    const trainDivId = tripId + "_menu_div";
+                    if (document.getElementById(trainDivId)) document.getElementById(trainDivId).remove();
 
-                const locatorLinkId = tripId + TRAIN_LOCATOR_SUFFIX;
-                const toggleLinkId = tripId + TRAIN_TOGGLE_SUFFIX;
+                    // add elements for train
+                    const menu = document.getElementById("train_menu");
 
-                // add elements for train
-                const menu = document.getElementById("train_menu");
+                    // element div
+                    const trainLink = document.createElement("div");
+                    trainLink.id = trainDivId;
+                    trainLink.className = "space-full flex flex-row justify-between";
 
-                // element div
-                const trainLink = document.createElement("div");
-                trainLink.id = trainDivId;
-                trainLink.className = "space-full flex flex-row justify-between";
+                    // locator element
+                    const locatorLink = document.createElement("a");
+                    locatorLink.id = tripId;
+                    locatorLink.href = "#";
+                    locatorLink.textContent = tripId;
+                    locatorLink.className = "map_menu_item_active";
+                    
+                    locatorLink.onclick = function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                // locator element
-                const locatorLink = document.createElement("a");
-                locatorLink.id = locatorLinkId;
-                locatorLink.href = "#";
-                locatorLink.textContent = tripId;
-                locatorLink.className = "map_menu_item_active";
-                
-                locatorLink.onclick = function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                        const shape = trainShapesToRender[this.id];
+                        const coordinates = shape["coordinates"];
+                        const moving = shape["isMoving"];
 
-                    const trainId = this.textContent;
-                    const shape = trainShapesToRender[trainId];
-                    const coordinates = shape["coordinates"];
-                    const moving = shape["isMoving"];
+                        // update info area
+                        const infoArea = document.getElementById("info_area");
+                        var innerHtml = "";
+                        innerHtml += "<b>Train ID</b><br>" + this.id;
+                        innerHtml += "<br><br>"
+                        innerHtml += "<b>Location</b><br>" + "Lon: " + coordinates[0] + "<br>Lat: " + coordinates[1];
+                        innerHtml += "<br><br>"
+                        innerHtml += "<b>Status</b><br>" + (moving ? "Enroute to next station" : "Stopped at station");
+                        infoArea.innerHTML = innerHtml;
 
-                    // update info area
-                    const infoArea = document.getElementById("info_area");
-                    var innerHtml = "";
-                    innerHtml += "<b>Train ID</b><br>" + trainId;
-                    innerHtml += "<br><br>"
-                    innerHtml += "<b>Location</b><br>" + "Lon: " + coordinates[0] + "<br>Lat: " + coordinates[1];
-                    innerHtml += "<br><br>"
-                    innerHtml += "<b>Status</b><br>" + (moving ? "Enroute to next station" : "Stopped at station");
-                    infoArea.innerHTML = innerHtml;
+                        // center map onto train
+                        map.flyTo({
+                            "center": coordinates,
+                            "zoom": FLY_TO_ZOOM,
+                            "bearing": 0,
+                            "pitch": 0.0,
+                            "duration": 5000,
+                            "essential": false
+                        });
+                    };
 
-                    // center map onto train
-                    map.flyTo({ "center": coordinates, "zoom": FLY_TO_ZOOM, "essential": true });
-                };
+                    // toggle element
+                    const toggleLink = document.createElement("a");
+                    toggleLink.id = tripId;
+                    toggleLink.href = "#";
+                    toggleLink.textContent = "Hide";
+                    toggleLink.className = "map_menu_item_active";
 
-                // toggle element
-                const toggleLink = document.createElement("a");
-                toggleLink.id = toggleLinkId;
-                toggleLink.href = "#";
-                toggleLink.textContent = "Hide";
-                toggleLink.className = "map_menu_item_active";
+                    toggleLink.onclick = function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                toggleLink.onclick = function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const trainId = this.id.replace(TRAIN_TOGGLE_SUFFIX, "");
-
-                    for (const entry in layerReference) {
-                        const type = layerReference[entry]["type"];
-                        const id = layerReference[entry]["id"];
-                        if (type === "train" && id === trainId) {
-                            const trainVisibility = map.getLayoutProperty(entry, "visibility");
-                            if (trainVisibility === "visible") {
-                                map.setLayoutProperty(entry, "visibility", "none");
-                                this.className = "map_menu_item_inactive";
-                                toggleLink.textContent = "Show";
-                            } else {
-                                map.setLayoutProperty(entry, "visibility", "visible");
-                                this.className = "map_menu_item_active";
-                                toggleLink.textContent = "Hide";
+                        for (const entry in layerReference) {
+                            const type = layerReference[entry]["type"];
+                            const id = layerReference[entry]["id"];
+                            if (type === "train" && id === this.id) {
+                                const trainVisibility = map.getLayoutProperty(entry, "visibility");
+                                if (trainVisibility === "visible") {
+                                    console.log("[INFO]: Disabling visibility for train " + this.id);
+                                    map.setLayoutProperty(entry, "visibility", "none");
+                                    this.className = "map_menu_item_inactive";
+                                    toggleLink.textContent = "Show";
+                                } else {
+                                    console.log("[INFO]: Enabling visibility for train " + this.id);
+                                    map.setLayoutProperty(entry, "visibility", "visible");
+                                    this.className = "map_menu_item_active";
+                                    toggleLink.textContent = "Hide";
+                                }
+                                break;
                             }
-                            break;
                         }
-                    }
-                };
+                    };
 
-                // add the element to the routes list
-                trainLink.appendChild(locatorLink);
-                trainLink.appendChild(toggleLink);
-                menu.appendChild(trainLink);
+                    // add the element to the routes list
+                    trainLink.appendChild(locatorLink);
+                    trainLink.appendChild(toggleLink);
+                    menu.appendChild(trainLink);
+                }
 
                 // ===================== Add Railway Stops ===================== //
                 for (var index in stopTimes[tripId]) {
@@ -867,9 +906,11 @@ export function Map({ region }) {
                     if (!stops[stopId]) continue;
                     const stopCoordinates = stops[stopId]["coordinates"];
                     if (!(addedStops.includes(stopId))) {
-                        totalStops++;
-                        addedStops.push(stopId);
-                        stopShapesToRender[stopId] = stopCoordinates;
+                        if (canUseFullMap || isPointInBounds(stopCoordinates)) {
+                            totalStops++;
+                            addedStops.push(stopId);
+                            stopShapesToRender[stopId] = stopCoordinates;
+                        }
                     }
                 }
             }
@@ -917,7 +958,7 @@ export function Map({ region }) {
                             "line-opacity": 1.0,
                             "line-color": "#808080",
                             "line-width": 1.5
-                        }
+                        },
                     });
                 }
             }
@@ -1095,7 +1136,7 @@ export function Map({ region }) {
                             type: "click",
                             target: { layerId: shapeName },
                             handler: async ({ feature }) => {
-                                console.log("[INFO]: Clicked train: " + shapeName);
+                                console.log("[INFO]: Clicked train: " + layerReference[shapeName]["id"]);
                                 const infoArea = document.getElementById("info_area");
                                 var innerHtml = "";
                                 innerHtml += "<b>Train ID</b><br>" + layerReference[shapeName]["id"];
@@ -1165,11 +1206,11 @@ export function Map({ region }) {
 
                                 // new element for weather
                                 const stopInfoDiv = document.createElement("div");
-                                stopInfoDiv.id = STOP_PREFIX + stopId + "_menu_div";
+                                stopInfoDiv.id = stopId + "_menu_div";
 
                                 // new element for stop info
                                 const stopInfoConstant = document.createElement("p");
-                                stopInfoConstant.id = STOP_PREFIX + stopId + "_menu_p_constant";
+                                stopInfoConstant.id = stopId + "_menu_p_constant";
                                 var constantInfoStringBuilder = "";
                                 constantInfoStringBuilder = "<b>Stop ID</b><br>" + stopId;
                                 constantInfoStringBuilder += "<br><br>"
@@ -1297,26 +1338,6 @@ export function Map({ region }) {
                 }
             }
 
-            // render the map mask
-            function renderMask() {
-                if (region !== "Canada") {
-                    const mask = turf.polygon([REGION_CROPS[region]["bounds"]]);
-                    map.addSource('map-mask', {
-                        'type': 'geojson',
-                        "data": polyMask(mask)
-                    });
-                    map.addLayer({
-                        'id': 'map-mask',
-                        'type': 'fill',
-                        'source': 'map-mask',
-                        "paint": {
-                          "fill-color": MAP_MASK_COLOR,
-                          'fill-opacity': 1.0
-                        }
-                    });
-                }
-            }
-
             // ====================== Render layers ====================== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
             // ===== THIS IS ORDER-SENSITIVE. DO NOT REARRANGE THIS. ===== //
@@ -1326,7 +1347,6 @@ export function Map({ region }) {
             renderTrackOverlays(sortedTrackOverlaySegments);
             renderTrains();
             renderStops();
-            renderMask();
             // =========================== END =========================== //
 
             // log counters
@@ -1340,8 +1360,6 @@ export function Map({ region }) {
             console.log("[INFO]: Total routes: " + totalRoutes);
             console.log("[INFO]: Total stops : " + totalStops);
             console.log("[INFO]: Total trains: " + totalTrains);
-            console.log("[INFO]: ----> Trains at stops: " + totalTrainsAtStops);
-            console.log("[INFO]: ----> Trains moving: " + totalTrainsMoving);
 
             setLoading(false);
         });
@@ -1359,12 +1377,12 @@ export function Map({ region }) {
                         <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
                     }
                     <div className="size-full flex flex-row justify-between ml-1">
-                        <div className="text-left">
+                        <div className="flex flex-row gap-2 text-left">
                             {!isRouteOnExpandedPage &&
                                 <Link className="dark_button_mini" href="/map">Expand Map</Link>
                             }
                         </div>
-                        <div className="text-right">
+                        <div id="mapActions" className="flex flex-row gap-2 text-right">
                             <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
                                 {loading ? "Fetching Data..." : "Fetch Latest Data"}
                             </Link>

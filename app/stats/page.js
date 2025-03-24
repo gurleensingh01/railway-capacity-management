@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import { RandomLoadMessage } from "../components/utils/randomLoadMessage.js";
 import { KPI } from "../components/kpi.js";
 import { Sidebar } from "../components/sidebar.js";
 import "../styles.css";
@@ -25,7 +25,7 @@ export default function Page() {
     }, []);
 
     if (!isAuthenticated) {
-        return <p className="text-center text-lg font-bold">Redirecting to sign in...</p>;
+        return <RandomLoadMessage/>;
     }
 
     // TODO: dynamically load location

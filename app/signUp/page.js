@@ -66,7 +66,7 @@ export default function Page() {
 
       setSuccess("Account created successfully! Redirecting...");
       setTimeout(() => {
-        router.push(`/dashboard?userId=${user.uid}`);
+        router.push(`/dashboard`);
       }, 1500);
     } catch (error) {
       setError(error.message || "An error occurred during signup.");
