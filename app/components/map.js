@@ -256,7 +256,7 @@ export function Map({ region }) {
         },
         "Canada": {
             "center": [-96.911615596645, 58.727691678169],
-            "mapBounds": [-178.330078125, 1.5818302639606, -0.791015625, 84.818373372456],
+            "mapBounds": [-179, 0, 0, 85],
             "zoom": 2.67
         }
     }
@@ -588,6 +588,50 @@ export function Map({ region }) {
 
         // ==================== on map load ==================== //
         map.on("load", () => {
+
+            // render the rain layers
+            const openweathermapKey = process.env.NEXT_PUBLIC_OPENWEATHERMAP_KEY;
+            // 1/4
+            // top-left quarter
+            // "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey
+            // 2/4
+            // bottom-left quarter
+            // "https://tile.openweathermap.org/map/precipitation/1/0/1.png?appid=" + openweathermapKey
+            // 3/4
+            // top-right quarter
+            // "https://tile.openweathermap.org/map/precipitation/1/1/0.png?appid=" + openweathermapKey
+            // 4/4
+            // bottom-right quarter
+            // "https://tile.openweathermap.org/map/precipitation/1/1/1.png?appid=" + openweathermapKey
+
+            // check with this to ensure correct rendering
+            // https://openweathermap.org/weathermap?basemap=map&cities=false&layer=radar&lat=30&lon=-20&zoom=3
+            // check this for more styles
+            // https://openweathermap.org/api/weathermaps
+
+            map.addSource("rain-top-left", {
+                "type": "image",
+                "url": "https://tile.openweathermap.org/map/precipitation_new/1/0/0.png?appid=" + openweathermapKey,
+                "coordinates": [
+                    // lon - lat
+                    // top left
+                    [-179, 85],
+                    // top right
+                    [0.0, 85],
+                    // bottom right
+                    [0.0, 0.0],
+                    // bottom left
+                    [-179, 0.0]
+                ]
+            });
+            map.addLayer({
+                "id": "rain-top-left",
+                "type": "raster",
+                "source": "rain-top-left",
+                "paint": {
+                    "raster-fade-duration": 0
+                }
+            });
 
             // add button to reset the map
             if (document.getElementById("recenterMapButton")) document.getElementById("recenterMapButton").remove();
