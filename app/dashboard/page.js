@@ -47,24 +47,18 @@ export default function DashboardPage() {
         } else {
             if (userLocation !== null && userLocation !== undefined && userLocation !== "Unknown") {
                 return (
-                    <div className="size-full int_main_container">
+                    <div className="int_main_container h-[calc(100%-112px)] w-full">
                         <Sidebar/>
 
                         {/* Main Content */}
-                        <div className="size-full flex flex-col p-4">
-                            <div className="p-4">
-                                <h1 className="int_title">{greeting}</h1>
-                                <h2 className="int_subtitle">Here is your overview for {userLocation}.</h2>
-                            </div>
+                        <div className="p-4 mb-[-4]">
+                            <h1 className="int_title">{greeting}</h1>
+                            <h2 className="int_subtitle">Here is your overview for {userLocation}.</h2>
+                        </div>
 
-                            <div className="size-full flex flex-col gap-2">
-                                <div className="h-5/6 w-full">
-                                    <Map region={userLocation}/>
-                                </div>
-                                <div className="h-1/6 w-full">
-                                    <KPI/>
-                                </div>
-                            </div>
+                        <div className="size-full flex flex-row flex-auto grow-0 shrink-0">
+                            <Map region={userLocation}/>
+                            {/*<KPI/>*/}
                         </div>
                     </div>
                 );

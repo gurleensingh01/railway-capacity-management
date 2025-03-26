@@ -109,8 +109,8 @@ sup {
 }
 
 .int_main_container {
-    height: 100%;
-    width: 100%;
+    padding: 16px;
+    padding-top: 0;
 }
 
 .int_title {
@@ -128,30 +128,66 @@ sup {
     font-weight: bold;
 }
 
+.map_section {
+    width: 87.5%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.map_buttons_section {
+    width: 100%;
+    height: 28px;
+    display: flex;
+    flex-direction: row;
+    gap: 1;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.map_menu_section {
+    min-width: 208px;
+    width: 12.5%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 .map_menu {
     background-color: var(--main-color-dark);
     color: var(--main-color-light);
+    height: 50%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border-radius: 16px;
+    padding: 16px;
+    text-align: left;
 }
 
 .map_menu_title {
-    padding-top: 16px;
     font-weight: bold;
     font-size: 24px;
+}
+
+.map_menu_content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: scroll;
 }
 
 .map_menu_item_active {
     background-color: var(--main-color-light);
     color: var(--main-color-dark);
     border-radius: 16px;
-    padding: 4px 12px;
 }
 
 .map_menu_item_inactive {
     background-color: var(--main-color-light);
     color: var(--main-color-dark);
     border-radius: 16px;
-    padding: 4px 12px;
     opacity: 0.67;
 }
 

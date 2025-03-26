@@ -39,19 +39,17 @@ export default function DashboardPage() {
         return <RandomLoadMessage/>;
     } else {
         return (
-            <div className="size-full int_main_container">
+            <div className="int_main_container h-[calc(100%-88px)] w-full">
                 <Sidebar />
-          
-                {/* Main Content */}
-                <div className="size-full flex flex-col p-4">
-                    <div className="p-4 pt-1 mb-[-32]">
-                        <h1 className="int_title">Railway Map</h1>
-                        <h2 className="int_subtitle">{userLocation}</h2>
-                    </div>
+                <div className="p-4 mb-[-32]">
+                    <h1 className="int_title">Railway Map</h1>
+                    <h2 className="int_subtitle">{userLocation}</h2>
+                </div>
 
-                    <div className="size-full">
-                        <Map region={userLocation}/>
-                    </div>
+
+                {/* Main Content */}
+                <div className="size-full flex flex-row flex-auto grow-0 shrink-0">
+                    <Map region={userLocation}/>
                 </div>
             </div>
         );

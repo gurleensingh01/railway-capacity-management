@@ -8,8 +8,8 @@ export function RandomLoadMessage() {
         "All aboard!",
         "Switching gears...",
         "Switching tracks...",
-        "Waiting on the conductor...",
-        "Fastening seatbelts...",
+        "Firing up the engines...",
+        "Fasten your seatbelts!",
         "Stowing the cargo...",
         "Full steam ahead!",
     ];

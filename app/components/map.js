@@ -13,7 +13,8 @@ import "../styles.css";
 export function Map({ region }) {
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const WEATHER_FAILED_TEXT = "Could not get weather data.";
-    const INFO_PANEL_DEFAULT_INNERHTML = "Click on a route, stop <br/>or train to view its <br/>information.";
+    const TRAIN_MENU_DEFAULT_INNERHTML = "<p>Trains will appear here once they are populated.</p>";
+    const INFO_PANEL_DEFAULT_INNERHTML = "<p>Click on a route, stop or train to view its information.</p>";
     const MINIMUM_ZOOM_FOR_STOP_VISIBILITY = 8.0;
     const MINIMUM_ZOOM_FOR_TRAIN_VISIBILITY = 5.0;
     const FLY_TO_ZOOM = 12.0;
@@ -430,7 +431,7 @@ export function Map({ region }) {
     };
 
     function resetTrainMenu() {
-        document.getElementById("train_menu").textContent = "";
+        document.getElementById("train_menu").innerHTML = TRAIN_MENU_DEFAULT_INNERHTML;
     }
 
     function resetInfoMenu() {
@@ -902,85 +903,6 @@ export function Map({ region }) {
                     lastCoordinate = coordinate;
                 }
 
-                if (canUseFullMap || (trainShapesToRender[tripId] && isPointInBounds(trainShapesToRender[tripId]["coordinates"]))) {
-                    // delete existing elements if they exist
-                    const trainDivId = tripId + "_menu_div";
-                    if (document.getElementById(trainDivId)) document.getElementById(trainDivId).remove();
-
-                    // add elements for train
-                    const menu = document.getElementById("train_menu");
-
-                    // element div
-                    const trainLink = document.createElement("div");
-                    trainLink.id = trainDivId;
-                    trainLink.className = "space-full flex flex-row justify-between";
-
-                    // locator element
-                    const locatorLink = document.createElement("a");
-                    locatorLink.id = tripId;
-                    locatorLink.href = "#";
-                    locatorLink.textContent = tripId;
-                    locatorLink.className = "map_menu_item_active";
-                    
-                    locatorLink.onclick = function (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        const shape = trainShapesToRender[this.id];
-                        const coordinates = shape["coordinates"];
-                        const moving = shape["isMoving"];
-
-                        // update info area
-                        const infoArea = document.getElementById("info_area");
-                        var innerHtml = "";
-                        innerHtml += "<b>Train ID</b><br>" + this.id;
-                        innerHtml += "<br><br>"
-                        innerHtml += "<b>Location</b><br>" + "Lon: " + coordinates[0] + "<br>Lat: " + coordinates[1];
-                        innerHtml += "<br><br>"
-                        innerHtml += "<b>Status</b><br>" + (moving ? "Enroute to next station" : "Stopped at station");
-                        infoArea.innerHTML = innerHtml;
-
-                        setLayerVisibility("route_top", null, 0);
-                        setLayerVisibility("route_top", this.id, 1);
-
-                        // center map onto train
-                        map.flyTo({
-                            "center": coordinates,
-                            "zoom": FLY_TO_ZOOM,
-                            "bearing": 0,
-                            "pitch": 0.0,
-                            "duration": 5000,
-                            "essential": false
-                        });
-                    };
-
-                    // toggle element
-                    const toggleLink = document.createElement("a");
-                    toggleLink.id = tripId;
-                    toggleLink.href = "#";
-                    toggleLink.textContent = "Hide";
-                    toggleLink.className = "map_menu_item_active";
-
-                    toggleLink.onclick = function (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const result = setLayerVisibility("train", this.id, 2);
-                        if (result) {
-                            this.className = "map_menu_item_active";
-                            toggleLink.textContent = "Hide";
-                        } else {
-                            this.className = "map_menu_item_inactive";
-                            toggleLink.textContent = "Show";    
-                        }
-                    };
-
-                    // add the element to the routes list
-                    trainLink.appendChild(locatorLink);
-                    trainLink.appendChild(toggleLink);
-                    menu.appendChild(trainLink);
-                }
-
                 // ===================== Add Railway Stops ===================== //
                 for (var index in stopData) {
                     const stopId = stopData[index]["stopId"];
@@ -1186,6 +1108,16 @@ export function Map({ region }) {
             }
             
             function renderTrains() {
+                // add to train menu
+                const menu = document.getElementById("train_menu");
+                menu.innerHTML = "";
+
+                const trainMenuButtons = document.createElement("div");
+
+                const buttonBaseClasses = "h-fit w-[64px] p-1 map_menu_item_active text-center";
+                const buttonActiveClasses = buttonBaseClasses + " map_menu_item_active";
+                const buttonInactiveClasses = buttonBaseClasses + " map_menu_item_inactive";
+
                 for (const tripId in trainShapesToRender) {
                     const trainCoordinates = trainShapesToRender[tripId]["coordinates"];
                     const trainIsMoving = trainShapesToRender[tripId]["isMoving"];
@@ -1250,7 +1182,79 @@ export function Map({ region }) {
                             }
                         });
                     }
+                    
+                    // add train to menu
+                    // element div
+                    const trainDiv = document.createElement("div");
+                    trainDiv.id = tripId + "_menu_div";
+                    trainDiv.className = "flex flex-row h-fit w-full justify-between";
+
+                    // locator element
+                    const locatorLink = document.createElement("a");
+                    locatorLink.id = tripId;
+                    locatorLink.href = "#";
+                    locatorLink.textContent = tripId;
+                    locatorLink.className = buttonActiveClasses;
+                    
+                    locatorLink.onclick = function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const shape = trainShapesToRender[this.id];
+                        const coordinates = shape["coordinates"];
+                        const moving = shape["isMoving"];
+
+                        // update info area
+                        const infoArea = document.getElementById("info_area");
+                        var innerHtml = "";
+                        innerHtml += "<b>Train ID</b><br>" + this.id;
+                        innerHtml += "<br><br>"
+                        innerHtml += "<b>Location</b><br>" + "Lon: " + coordinates[0] + "<br>Lat: " + coordinates[1];
+                        innerHtml += "<br><br>"
+                        innerHtml += "<b>Status</b><br>" + (moving ? "Enroute to next station" : "Stopped at station");
+                        infoArea.innerHTML = innerHtml;
+
+                        setLayerVisibility("route_top", null, 0);
+                        setLayerVisibility("route_top", this.id, 1);
+
+                        // center map onto train
+                        map.flyTo({
+                            "center": coordinates,
+                            "zoom": FLY_TO_ZOOM,
+                            "bearing": 0,
+                            "pitch": 0.0,
+                            "duration": 5000,
+                            "essential": false
+                        });
+                    };
+
+                    // toggle element
+                    const toggleLink = document.createElement("a");
+                    toggleLink.id = tripId;
+                    toggleLink.href = "#";
+                    toggleLink.textContent = "Hide";
+                    toggleLink.className = buttonActiveClasses;
+
+                    toggleLink.onclick = function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const result = setLayerVisibility("train", this.id, 2);
+                        if (result) {
+                            this.className = buttonActiveClasses;
+                            toggleLink.textContent = "Hide";
+                        } else {
+                            this.className = buttonInactiveClasses;
+                            toggleLink.textContent = "Show";
+                        }
+                    };
+
+                    // add the element to the routes list
+                    trainDiv.appendChild(locatorLink);
+                    trainDiv.appendChild(toggleLink);
+                    menu.appendChild(trainDiv);
                 }
+                // menu.appendChild(trainMenuButtons);
             }
             
             function renderStops() {
@@ -1352,6 +1356,8 @@ export function Map({ region }) {
                                 infoArea.appendChild(stopInfoDiv);
                                 
                                 // now we load the weather
+                                const weatherSectionClassName = "w-full flex flex-row gap-2 justify-left text-left place-content-center grow-0";
+                                const weatherDescriptionClassName = "text-right text-[12px] mt-[-8px] whitespace-break-spaces";
                                 var weather = null;
                                 if (stopsWeatherCache[shapeName]) {
                                     weather = stopsWeatherCache[shapeName];
@@ -1362,7 +1368,7 @@ export function Map({ region }) {
                                 if (weather !== null) {
                                     // div for current conditions
                                     const nowDiv = document.createElement("div");
-                                    nowDiv.className = "w-full flex flex-row gap-2 justify-left text-left place-content-center mb-[8px]";
+                                    nowDiv.className = weatherSectionClassName;
 
                                     // icon
                                     const nowIconImg = document.createElement("img");
@@ -1373,13 +1379,13 @@ export function Map({ region }) {
 
                                     // text
                                     const nowTextDiv = document.createElement("div");
-                                    nowTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center whitespace-wrap overflow-hidden mt-[-10px]";
+                                    nowTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center mt-[-10px]";
                                     const nowTempP = document.createElement("p");
                                     nowTempP.innerHTML = "<b>" + weather["now"]["temp"] + "</b>" + "<sup>°C</sup>";
-                                    nowTempP.className = "w-full text-right text-[24px]";
+                                    nowTempP.className = "text-right text-[24px]";
                                     const nowDescP = document.createElement("p");
                                     nowDescP.textContent = weather["now"]["desc"];
-                                    nowDescP.className = "w-full text-right text-[12px] mt-[-8px]";
+                                    nowDescP.className = weatherDescriptionClassName;
 
                                     // forecast conditions
                                     // title
@@ -1399,8 +1405,8 @@ export function Map({ region }) {
                                         const theDate = d.getDate();
 
                                         // this entire forecast's div
-                                        const forecastDay = document.createElement("div");
-                                        forecastDay.className = "w-full flex flex-col justify-left text-left";
+                                        const forecastDayDiv = document.createElement("div");
+                                        forecastDayDiv.className = "w-full flex flex-col justify-left text-left";
 
                                         // date title
                                         const forecastDayDateP = document.createElement("p");
@@ -1408,7 +1414,7 @@ export function Map({ region }) {
 
                                         // forecast content
                                         const forecastDayContentDiv = document.createElement("div");
-                                        forecastDayContentDiv.className = "w-full flex flex-row";
+                                        forecastDayContentDiv.className = weatherSectionClassName;
 
                                         // icon
                                         const forecastDayIconImg = document.createElement("img");
@@ -1419,7 +1425,7 @@ export function Map({ region }) {
 
                                         // text
                                         const forecastDayTextDiv = document.createElement("div");
-                                        forecastDayTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center whitespace-wrap overflow-hidden";
+                                        forecastDayTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center";
                                         const forecastDayTextTempP = document.createElement("p");
                                         var forecastDayTextTempPInnerHtml = "";
                                         forecastDayTextTempPInnerHtml += ref["mintemp"] + "<sup>°C</sup> / ";
@@ -1428,16 +1434,16 @@ export function Map({ region }) {
                                         forecastDayTextTempP.className = "w-full text-right text-[24px]";
                                         const forecastDayTextDescP = document.createElement("p");
                                         forecastDayTextDescP.textContent = ref["desc"];
-                                        forecastDayTextDescP.className = "h-fit w-full text-right text-[12px] mt-[-8px]";
+                                        forecastDayTextDescP.className = weatherDescriptionClassName;
                                         
                                         // append
                                         forecastDayTextDiv.appendChild(forecastDayTextTempP);
                                         forecastDayTextDiv.appendChild(forecastDayTextDescP);
                                         forecastDayContentDiv.appendChild(forecastDayIconImg);
                                         forecastDayContentDiv.appendChild(forecastDayTextDiv);
-                                        forecastDay.appendChild(forecastDayDateP);
-                                        forecastDay.appendChild(forecastDayContentDiv);
-                                        forecastDiv.appendChild(forecastDay);
+                                        forecastDayDiv.appendChild(forecastDayDateP);
+                                        forecastDayDiv.appendChild(forecastDayContentDiv);
+                                        forecastDiv.appendChild(forecastDayDiv);
                                     }
 
                                     // replace placeholder with what we have now
@@ -1498,8 +1504,8 @@ export function Map({ region }) {
 
     return (
         <div className="size-full flex flex-row gap-4">
-            <div className="size-full flex flex-col w-7/8">
-                <div className="w-full flex flex-row gap-1 mb-1">
+            <div className="map_section">
+                <div className="map_buttons_section">
                     {!isRouteOnExpandedPage &&
                         <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
                     }
@@ -1518,18 +1524,14 @@ export function Map({ region }) {
                 </div>
                 <div id="map" ref={mapContainerRef} className="size-full"></div>
             </div>
-            <div className="h-full min-w-[208px] w-1/8 flex flex-col gap-4">
-                <div className="flex flex-col w-full max-h-1/2 h-1/2 map_menu text-left p-4 pt-0 overflow-hidden">
+            <div className="map_menu_section">
+                <div className="map_menu">
                     <h2 className="map_menu_title">Info</h2>
-                    <p id="info_area" className="overflow-scroll">
-                        Click on a stop or train <br/>
-                        to view its information.
-                    </p>
+                    <div id="info_area" className="map_menu_content">{INFO_PANEL_DEFAULT_INNERHTML}</div>
                 </div>
-                <div className="flex flex-col w-full max-h-1/2 h-1/2 map_menu text-left p-4 pt-0 overflow-hidden">
-                    <h2 className="map_menu_title">Train</h2>
-                    <div id="train_menu" className="flex flex-col gap-1 overflow-scroll p-1 list-disc">
-                    </div>
+                <div className="map_menu">
+                    <h2 className="map_menu_title">Trains</h2>
+                    <div id="train_menu" className="map_menu_content">{TRAIN_MENU_DEFAULT_INNERHTML}</div>
                 </div>
             </div>
         </div>
