@@ -21,26 +21,96 @@ sup {
     height: 100%;
     width: 100%;
     padding: 32px;
+    display: flex;
+    flex-direction: column;
+    overflow: scroll;
+    white-space: nowrap;
+}
+
+.ext_greeting {
+    display: flex;
+    flex-direction:column;
+    justify-content: start;
+    text-align: left;
+    align-items: start;
+    margin: 0;
+    margin-bottom: 32px;
+}
+
+.ext_greeting_title {
+    font-size: 56px;
+    font-weight: bold;
+}
+
+.ext_greeting_subtitle {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.ext_auth_container {
+    display: flex;
+    margin: auto;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid;
+    border-radius: 32px;
+}
+
+.ext_auth_form {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 32px 64px;
+    margin: 32px;
+    gap: 48px;
+}
+
+.ext_auth_submit_button {
+    width: 100%;
+    height: auto;
+    padding: 16px;
+    margin-top: 24px;
+}
+
+.ext_field_section {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    gap: 8px;
+}
+
+.ext_field_label {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.ext_field_entry {
+    width: 100%;
+    border: 2px solid;
+    border-radius: 32px;
+    padding: 16px;
+}
+
+.ext_auth_error {
+    color: red;
+}
+
+.ext_auth_context_switcher {
+    width: 100%;
+    height: 100%;
+    margin-top: 0;
+    margin-bottom: 64px;
 }
 
 .int_main_container {
     height: 100%;
     width: 100%;
-}
-
-.ext_title {
-    font-size: 56px;
-    font-weight: bold;
-}
-
-.ext_subtitle {
-    font-size: 20px;
-    font-weight: bold;
-}
-
-.ext_label {
-    font-size: 16px;
-    font-weight: bold;
 }
 
 .int_title {

@@ -7,11 +7,11 @@ import { doc, getDoc } from "firebase/firestore"; // Firestore functions
 import "../styles.css";
 
 export default function SignInPage() {
-  const router = useRouter();
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+    const router = useRouter();
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-  const onSubmit = async (event) => {
+    const onSubmit = async (event) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
@@ -20,66 +20,73 @@ export default function SignInPage() {
     const password = event.target.password.value;
 
     if (!email || !password) {
-      setError("Please fill out e-mail/password fields.");
-      setLoading(false);
-      return;
+        setError("Please fill out e-mail/password fields.");
+        setLoading(false);
+        return;
     }
 
     try {
-      // Sign in using Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+        // Sign in using Firebase Auth
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
 
-      // Fetch user's location from Firestore
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      let location = "Unknown";
-      if (userDoc.exists()) {
-        location = userDoc.data().location || "Unknown";
-      }
+        // Fetch user's location from Firestore
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        let location = "Unknown";
+        if (userDoc.exists()) {
+            location = userDoc.data().location || "Unknown";
+        }
 
-      // Redirect to dashboard with location
-      router.push(`/dashboard`);
-    } catch (error) {
-      setError(error.message || "Invalid email or password.");
-    } finally {
-      setLoading(false);
-    }
-  };
+        // Redirect to dashboard with location
+        router.push(`/dashboard`);
+        } catch (error) {
+            setError(error.message || "Invalid email or password.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
+    return (
     <div className="ext_main_container">
-      <div className="mb-16">
-        <h1 className="ext_title">Welcome Back</h1>
-        <h2 className="ext_subtitle">Please sign in to continue</h2>
-      </div>
-
-      {error && <p className="text-red-500 mb-4">{error}</p>} {/* Show error message */}
-
-      <div className="flex justify-center items-center">
-        <div className="w-[90%] max-w-[400px] p-6 border-2 border-gray-700 rounded-3xl">
-            <form onSubmit={onSubmit} className="flex flex-col items-center">
-            <h3 className="pl-2 self-start pb-2 text-gray-700 ext_label">E-mail</h3>
-            <input className="w-[80%] max-w-[560px] px-4 py-3 mb-8 border" name="email" type="email" placeholder="e-mail" required />
-
-            <h3 className="pl-2 self-start pb-2 text-gray-700 ext_label">Password</h3>
-            <input className="w-[80%] max-w-[560px] px-4 py-3 mb-8 border" name="password" type="password" placeholder="password" required />
-
-            <button type="submit" className="w-32 px-4 py-3 mx-auto dark_button" disabled={loading}>
-                {loading ? "Signing In..." : "Sign In"}
-            </button>
-
-            {loading && (
-                <div className="flex justify-center mt-4">
-                <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
-                </div>
-            )}
-            </form>
-
-            <button onClick={() => router.push("/signUp")} className="mx-20 mt-4 dark_button_without_background">
-            I don't have an account
-            </button>
+        <div className="ext_greeting">
+            <h1 className="ext_greeting_title">Welcome Back</h1>
+            <h2 className="ext_greeting_subtitle">Please sign in to continue</h2>
         </div>
+
+        <div className="ext_auth_container">
+            <form onSubmit={onSubmit} className="ext_auth_form">
+                <div className="ext_field_section">
+                    <h3 className="ext_field_label">E-mail</h3>
+                    <input className="ext_field_entry" name="email" type="email" placeholder="e-mail" autoFocus required />
+                </div>
+
+                <div className="ext_field_section">
+                    <h3 className="ext_field_label">Password</h3>
+                    <input className="ext_field_entry" name="password" type="password" placeholder="password" required />
+                </div>
+
+                {/* Loading spinner */}
+                { loading && (
+                    <div className="flex justify-center mt-4">
+                    <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
+                    </div>
+                )}
+
+                {/* Error messages */}
+                { error && (
+                    <p className="ext_auth_error">{error}</p>
+                )}
+
+                <div className="ext_field_section">
+                    <button type="submit" className="ext_auth_submit_button dark_button" disabled={loading}>
+                    {loading ? "Signing In..." : "Sign In"}
+                    </button>
+                </div>
+            </form>
+            <button onClick={() => router.push("/signUp")} className="ext_auth_context_switcher dark_button_without_background">
+                I don't have an account
+            </button>
         </div>
     </div>
-  );
+    );
 }

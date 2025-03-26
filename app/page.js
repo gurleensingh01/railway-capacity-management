@@ -33,7 +33,7 @@ export default function WelcomePage() {
         <div className="ext_main_container">
             <div className="h-full w-full flex flex-col items-center justify-center">
                 <div className="text-center">
-                    <h1 className="ext_title">Welcome</h1>
+                    <h1 className="ext_greeting_title">Welcome</h1>
                     <h2 className="font-thin italic mb-8">Railway Capacity Management</h2>
 
                     <div className="flex flex-row space-x-5 justify-center" >

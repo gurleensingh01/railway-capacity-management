@@ -8,152 +8,129 @@ import "../styles.css";
 
 // List of Canadian provinces
 const provinces = [
-    "Canada", "Alberta", "British Columbia", "Manitoba", "New Brunswick",
-    "Newfoundland and Labrador", "Northwest Territories", "Nova Scotia", "Nunavut",
-    "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan", "Yukon"
-  ];  
+        "Canada", "Alberta", "British Columbia", "Manitoba", "New Brunswick",
+        "Newfoundland and Labrador", "Northwest Territories", "Nova Scotia", "Nunavut",
+        "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan", "Yukon"
+    ];  
 
 export default function Page() {
-  const router = useRouter();
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(null);
-  const [province, setProvince] = useState("Canada"); // Default province selection
+    const router = useRouter();
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(null);
+    const [province, setProvince] = useState("Canada"); // Default province selection
 
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
-  const confirmPasswordRef = useRef(null);
+    const emailRef = useRef(null);
+    const passwordRef = useRef(null);
+    const confirmPasswordRef = useRef(null);
 
-  // Validation for email and password
-  const validateInputs = (email, password, confirmPassword) => {
-    if (!email || !password) return "Please fill out all fields.";
-    if (password.length < 6) return "Password must be at least 6 characters.";
-    if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter.";
-    if (!/\d/.test(password)) return "Password must contain at least one number.";
-    if (password !== confirmPassword) return "Passwords do not match.";
-    return null;
-  };
+    // Validation for email and password
+    const validateInputs = (email, password, confirmPassword) => {
+        if (!email || !password)            return "Please fill out all fields.";
+        if (password.length < 6)            return "Password must be at least 6 characters.";
+        if (!/[A-Z]/.test(password))        return "Password must contain at least one uppercase letter.";
+        if (!/\d/.test(password))           return "Password must contain at least one number.";
+        if (password !== confirmPassword)   return "Passwords do not match.";
+        return null;
+    };
 
-  // Handle user sign-up
-  const onSubmit = async (event) => {
-    event.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
+    // Handle user sign-up
+    const onSubmit = async (event) => {
+        event.preventDefault();
+        setError(null);
+        setSuccess(null);
+        setLoading(true);
 
-    const email = emailRef.current.value;
-    const password = passwordRef.current.value;
-    const confirmPassword = confirmPasswordRef.current.value;
+        const email = emailRef.current.value;
+        const password = passwordRef.current.value;
+        const confirmPassword = confirmPasswordRef.current.value;
 
-    // Validate input
-    const validationError = validateInputs(email, password, confirmPassword);
-    if (validationError) {
-      setError(validationError);
-      setLoading(false);
-      return;
-    }
+        // Validate input
+        const validationError = validateInputs(email, password, confirmPassword);
+        if (validationError) {
+            setError(validationError);
+            setLoading(false);
+            return;
+        }
 
-    try {
-      // Sign up with Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+        try {
+            // Sign up with Firebase Authentication
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
 
-      // Store user data in Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        email: user.email,
-        location: province,
-      });
+            // Store user data in Firestore
+            await setDoc(doc(db, "users", user.uid), {
+                email: user.email,
+                location: province,
+            });
 
-      setSuccess("Account created successfully! Redirecting...");
-      setTimeout(() => {
-        router.push(`/dashboard`);
-      }, 1500);
-    } catch (error) {
-      setError(error.message || "An error occurred during signup.");
-    } finally {
-      setLoading(false);
-    }
-  };
+            setSuccess("Account created successfully! Redirecting...");
+            setTimeout(() => {
+                router.push(`/dashboard`);
+            }, 1500);
+        } catch (error) {
+            setError(error.message || "An error occurred during signup.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <div className="ext_main_container">
-      <div className="mb-4">
-        <h1 className="ext_title">Create an Account</h1>
-        <h2 className="ext_subtitle">Please fill in the form to continue</h2>
-      </div>
+    return (
+        <div className="ext_main_container">
+            <div className="ext_greeting">
+                <h1 className="ext_greeting_title">Create an Account</h1>
+                <h2 className="ext_greeting_subtitle">Please fill in the form to continue</h2>
+            </div>
 
-      {error && <p className="text-red-800 mb-4">{error}</p>}
-      {success && <p style={{ color: "#223B34" }} className="mb-4">{success}</p>}
+            <div className="ext_auth_container">
+                <form onSubmit={onSubmit} className="ext_auth_form">
+                    <div className="ext_field_section">
+                        <h3 className="ext_field_label">E-mail</h3>
+                        <input className="ext_field_entry" ref={emailRef} type="email" placeholder="e-mail" autoFocus required/>
+                    </div>
 
-      <div className="flex justify-center items-center">
-        <div className="w-[90%] max-w-[400px] p-6 border-2 border-gray-700 rounded-3xl">
-            <form onSubmit={onSubmit} className="flex flex-col items-center">
-            <h3 className="pl-2 self-start pb-2 ext_label">E-mail</h3>
-            <input
-                className="w-[80%] max-w-[560px] px-4 py-3 mb-8 border"
-                ref={emailRef}
-                type="email"
-                placeholder="e-mail"
-                autoFocus
-                required
-            />
+                    <div className="ext_field_section">
+                        <h3 className="ext_field_label">Password</h3>
+                        <input className="ext_field_entry" ref={passwordRef} type="password" placeholder="password" required/>
+                    </div>
 
-            <h3 className="pl-2 self-start pb-2 ext_label">Password</h3>
-            <input
-                className="w-[80%] max-w-[560px] px-4 py-3 mb-8 border"
-                ref={passwordRef}
-                type="password"
-                placeholder="password"
-                required
-            />
+                    <div className="ext_field_section">
+                        <h3 className="ext_field_label">Confirm Password</h3>
+                        <input className="ext_field_entry" ref={confirmPasswordRef} type="password" placeholder="confirm password" required/>
+                    </div>
 
-            <h3 className="pl-2 self-start pb-2 ext_label">Confirm Password</h3>
-            <input
-                className="w-[80%] max-w-[560px] px-4 py-3 mb-8 border"
-                ref={confirmPasswordRef}
-                type="password"
-                placeholder="confirm password"
-                required
-            />
+                    {/* Province Selection */}
+                    <div className="ext_field_section">
+                        <h3 className="ext_field_label">Region</h3>
+                        <select value={province} onChange={(e) => setProvince(e.target.value)} className="text-center ext_field_entry" required>
+                            {provinces.map((prov) => (<option key={prov} value={prov}>{prov}</option>))}
+                        </select>
+                    </div>
 
-            {/* Province Selection */}
-            <h3 className="pl-2 self-start pb-2 ext_label">Select Your Province</h3>
-            <select
-                value={province}
-                onChange={(e) => setProvince(e.target.value)}
-                className="w-[80%] max-w-[560px] px-4 py-3 mb-8 border"
-                required
-            >
-                {provinces.map((prov) => (
-                <option key={prov} value={prov}>
-                    {prov}
-                </option>
-                ))}
-            </select>
+                    {/* Loading message */}
+                    {loading && (
+                        <div className="flex justify-center mt-4">
+                            <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
+                        </div>
+                    )}
 
-            <button
-                type="submit"
-                className="w-40 px-4 py-3 mx-auto mb-2 dark_button"
-                disabled={loading}
-            >
-                {loading ? "Creating Account..." : "Register"}
-            </button>
+                    {/* Error messages */}
+                    {error && <p className="ext_auth_error">{error}</p>}
 
-            {loading && (
-                <div className="flex justify-center mt-4">
-                <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
-                </div>
-            )}
-            </form>
+                    {/* Success messages */}
+                    {success && <p className="">{success}</p>}
 
-            <button
-            onClick={() => router.push("/signIn")}
-            className="mx-20 mt-4 dark_button_without_background"
-            >
-            I have an account already
-            </button>
+                    <div className="ext_field_section">
+                        <button type="submit" className="ext_auth_submit_button dark_button" disabled={loading} >
+                            {loading ? "Creating Account..." : "Register"}
+                        </button>
+                    </div>
+                </form>
+
+                <button onClick={() => router.push("/signIn")} className="ext_auth_context_switcher dark_button_without_background">
+                    I have an account already
+                </button>
+            </div>
         </div>
-        </div>
-    </div>
-  );
+    );
 }
