@@ -55,12 +55,6 @@ export function Sidebar() {
                     <li>
                         <a className="menu_item light_button block py-3 px-4 mr-1" href="/dashboard">Dashboard</a>
                     </li>
-                    <li>
-                        <a className="menu_item light_button block py-3 px-4 mr-1" href="/map">Railway Map</a>
-                    </li>
-                    <li>
-                        <a className="menu_item light_button block py-3 px-4 mr-1" href="/stats">Statistics</a>
-                    </li>
                 </ul>
 
                 <div className="flex flex-row mb-0 mt-auto">
