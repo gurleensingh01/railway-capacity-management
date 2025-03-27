@@ -594,6 +594,8 @@ export function Map({ region }) {
             // 1/4
             // top-left quarter
             // "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey
+            
+            // ======= if we ever need more than just north america ======= //
             // 2/4
             // bottom-left quarter
             // "https://tile.openweathermap.org/map/precipitation/1/0/1.png?appid=" + openweathermapKey
@@ -611,7 +613,7 @@ export function Map({ region }) {
 
             map.addSource("rain-top-left", {
                 "type": "image",
-                "url": "https://tile.openweathermap.org/map/precipitation_new/1/0/0.png?appid=" + openweathermapKey,
+                "url": "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey,
                 "coordinates": [
                     // lon - lat
                     // top left
@@ -629,7 +631,12 @@ export function Map({ region }) {
                 "type": "raster",
                 "source": "rain-top-left",
                 "paint": {
-                    "raster-fade-duration": 0
+                    "raster-contrast": 0.333,
+                    "raster-fade-duration": 1000,
+                    "raster-opacity": 0.667,
+                    "raster-resampling": "linear",
+                    "raster-saturation": 0.333
+                    
                 }
             });
 
