@@ -65,21 +65,14 @@ export default function SignInPage() {
                     <input className="ext_field_entry" name="password" type="password" placeholder="password" required />
                 </div>
 
-                {/* Loading spinner */}
-                { loading && (
-                    <div className="flex justify-center mt-4">
-                    <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
-                    </div>
-                )}
-
                 {/* Error messages */}
                 { error && (
                     <p className="ext_auth_error">{error}</p>
                 )}
 
                 <div className="ext_field_section">
-                    <button type="submit" className="ext_auth_submit_button dark_button" disabled={loading}>
-                    {loading ? "Signing In..." : "Sign In"}
+                    <button type="submit" className="ext_auth_submit_button dark_button flex flex-row justify-center" disabled={loading}>
+                    {loading ? <div className="text-center animate-spin h-8 w-8 border-t-2 border-white-500 rounded-full"></div> : "Sign In"}
                     </button>
                 </div>
             </form>

@@ -107,13 +107,6 @@ export default function Page() {
                         </select>
                     </div>
 
-                    {/* Loading message */}
-                    {loading && (
-                        <div className="flex justify-center mt-4">
-                            <div className="animate-spin h-8 w-8 border-t-2 border-blue-500 rounded-full"></div>
-                        </div>
-                    )}
-
                     {/* Error messages */}
                     {error && <p className="ext_auth_error">{error}</p>}
 
@@ -121,8 +114,8 @@ export default function Page() {
                     {success && <p className="">{success}</p>}
 
                     <div className="ext_field_section">
-                        <button type="submit" className="ext_auth_submit_button dark_button" disabled={loading} >
-                            {loading ? "Creating Account..." : "Register"}
+                        <button type="submit" className="ext_auth_submit_button dark_button flex flex-row justify-center" disabled={loading}>
+                            {loading ? <div className="text-center animate-spin h-8 w-8 border-t-2 border-white-500 rounded-full"></div> : "Register"}
                         </button>
                     </div>
                 </form>

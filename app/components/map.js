@@ -632,17 +632,18 @@ export function Map({ region }) {
                 "source": "rain-top-left",
                 "paint": {
                     "raster-contrast": 0.333,
-                    "raster-fade-duration": 1000,
+                    "raster-fade-duration": 0,
                     "raster-opacity": 0.667,
                     "raster-resampling": "linear",
                     "raster-saturation": 0.333
-                    
                 }
             });
 
+            // map action buttons
+            const mapActions = document.getElementById("mapActions");
+
             // add button to reset the map
             if (document.getElementById("recenterMapButton")) document.getElementById("recenterMapButton").remove();
-            const mapActions = document.getElementById("mapActions");
             const recenterMap = document.createElement("a");
             recenterMap.id = "recenterMapButton";
             recenterMap.onclick = function(e) {
@@ -661,8 +662,23 @@ export function Map({ region }) {
             };
             recenterMap.className = "dark_button_mini";
             recenterMap.href = "";
-            recenterMap.textContent = "Recenter Map";
+            recenterMap.textContent = "Re-center Map";
             mapActions.prepend(recenterMap);
+
+            // add button to toggle the weather
+            if (document.getElementById("toggleMapWeatherButton")) document.getElementById("toggleMapWeatherButton").remove();
+            const toggleWeather = document.createElement("a");
+            toggleWeather.id = "toggleMapWeatherButton";
+            toggleWeather.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var currentVisibility = (map.getLayoutProperty("rain-top-left", "visibility") === "visible");
+                map.setLayoutProperty("rain-top-left", "visibility", (currentVisibility ? "none" : "visible"));
+            };
+            toggleWeather.className = "dark_button_mini";
+            toggleWeather.href = "";
+            toggleWeather.textContent = "Toggle Weather";
+            mapActions.prepend(toggleWeather);
 
             // keep track of the stops that we have already added to the map
             var addedStops = [];
