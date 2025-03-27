@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../components/utils/firebase"; // Import Firebase
 import { doc, getDoc } from "firebase/firestore";
 import { RandomLoadMessage } from "../components/utils/randomLoadMessage.js";
-import { KPI } from "../components/kpi.js";
 import { Map } from "../components/map.js";
 import { Sidebar } from "../components/sidebar.js";
 import "../styles.css";
