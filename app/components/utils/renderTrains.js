@@ -24,7 +24,6 @@ export function renderTrains(
     const buttonBase = "h-fit w-[64px] p-1 map_menu_item_active text-center";
     const buttonActive = buttonBase + " map_menu_item_active";
     const buttonInactive = buttonBase + " map_menu_item_inactive";
-  
     for (const tripId in trainShapesToRender) {
       const { coordinates, isMoving } = trainShapesToRender[tripId];
       const layerId = getUUIDForLayer();
@@ -41,7 +40,7 @@ export function renderTrains(
                 coordinates
               },
               properties: {
-                  description: tripId
+                  description: "#" + tripId
               }
             }
           ]
@@ -80,7 +79,8 @@ export function renderTrains(
           'text-radial-offset': 1.0,
           'text-justify': 'auto',
           'text-size': 18,
-          'text-allow-overlap': true
+          'text-allow-overlap': true,
+          visibility: "visible"
         },
         paint: {
           'text-color': color,
@@ -90,6 +90,7 @@ export function renderTrains(
       });
   
       addLayerReference(layerId, { type: "train", id: tripId });
+      addLayerReference(layerId + "_label", { type: "train_label", id: tripId });
   
       map.addInteraction(layerId + "_click", {
         type: "click",
@@ -110,11 +111,10 @@ export function renderTrains(
       const trainDiv = document.createElement("div");
       trainDiv.id = `${tripId}_menu_div`;
       trainDiv.className = "flex flex-row h-fit w-full justify-between";
-  
+
       const locator = document.createElement("a");
       locator.href = "#";
-      locator.textContent = tripId;
-      locator.className = buttonActive;
+      locator.className = buttonActive + " flex flex-row";
       locator.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -128,7 +128,15 @@ export function renderTrains(
         setLayerVisibility("route_top", tripId, 1);
         flyToTrain(coordinates);
       };
-  
+
+      let coloredDiv = document.createElement("div");
+      coloredDiv.className = "size-[16px] rounded-full ml-1 mt-1 shrink-0";
+      coloredDiv.style.backgroundColor = color;
+
+      let locatorP = document.createElement("p");
+      locatorP.innerHTML = tripId;
+      locatorP.className = "justify-center w-full text-center";
+
       const toggle = document.createElement("a");
       toggle.href = "#";
       toggle.textContent = "Hide";
@@ -137,10 +145,13 @@ export function renderTrains(
         e.preventDefault();
         e.stopPropagation();
         const visible = setLayerVisibility("train", tripId, 2);
+        setLayerVisibility("train_label", tripId, visible);
         toggle.className = visible ? buttonActive : buttonInactive;
         toggle.textContent = visible ? "Hide" : "Show";
       };
   
+      locator.appendChild(coloredDiv);
+      locator.appendChild(locatorP);
       trainDiv.appendChild(locator);
       trainDiv.appendChild(toggle);
       menu.appendChild(trainDiv);

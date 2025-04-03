@@ -32,7 +32,7 @@ export function Map({ region }) {
 
     // color gradient
     // {
-    //      #ofTrains: "colorHex"
+    //      #ofTrainsOrMore: "colorHex"
     // }
 
     // use this for prod (or ~80 trains/track):
@@ -81,40 +81,6 @@ export function Map({ region }) {
     const [lastCenter, setLastCenter] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    function toggleSidebar() {
-        setIsTrainsSectionExpanded(!isTrainsSectionExpanded);
-    }
-
-    async function fetchLatestData() {
-        if (!regionCheck(region)) return;
-
-        setLoading(true);
-        console.clear();
-        let data = await fetchGTFSData();
-        setTrains(data.trains);
-        setStops(data.stops);
-        setStopTimes(data.stopTimes);
-
-        if (lastZoom === null) setLastZoom(REGIONS[region]["zoom"]);
-        if (lastCenter === null) setLastCenter(REGIONS[region]["center"]);
-    };
-
-    function resetTrainMenu() {
-        document.getElementById("train_menu").innerHTML = TRAIN_MENU_DEFAULT_INNERHTML;
-    }
-
-    function resetInfoMenu() {
-        document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
-    }
-
-    function dataIsValid(dataIn) {
-        if (dataIn === null) return false;
-        if (dataIn === undefined) return false;
-        if (Object.keys(dataIn) === undefined) return false;
-        if (Object.keys(dataIn).length === 0) return false;
-        return true;
-    }
-
     // cached weather for stops
     // {
     //      stopId: weatherData
@@ -137,11 +103,64 @@ export function Map({ region }) {
         }
     }
 
+    function toggleSidebar() {
+        setIsTrainsSectionExpanded(!isTrainsSectionExpanded);
+    }
+
+    async function fetchLatestData() {
+        if (!regionCheck(region)) return;
+
+        setLoading(true);
+        console.clear();
+        let data = await fetchGTFSData();
+        setTrains(data.trains);
+        setStops(data.stops);
+        setStopTimes(data.stopTimes);
+
+        if (lastZoom === null) setLastZoom(REGIONS[region]["zoom"]);
+        if (lastCenter === null) setLastCenter(REGIONS[region]["center"]);
+    };
+
+    function resetTrainMenu() {
+        document.getElementById("train_menu").innerHTML = TRAIN_MENU_DEFAULT_INNERHTML;
+    }
+
+    function resetInfoMenu(mapIn) {
+        let info = document.getElementById("info_area");
+        info.innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
+
+        // add legend
+        let legendTitle = document.createElement("h2");
+        legendTitle.className="map_menu_title mt-4";
+        legendTitle.innerHTML="Legend"
+        info.appendChild(legendTitle);
+        for (const k in LINE_COLOR_GRADIENT) {
+            let div = document.createElement("div");
+            div.className = "w-full h-fit flex flex-row content-center mb-2";
+            let coloredDiv = document.createElement("div");
+            coloredDiv.className = "size-[24px] rounded-full mr-2";
+            coloredDiv.style.backgroundColor = LINE_COLOR_GRADIENT[k];
+            let coloredDesc = document.createElement("p");
+            coloredDesc.innerText = String(k) + " trains or more";
+            div.appendChild(coloredDiv);
+            div.appendChild(coloredDesc);
+            info.appendChild(div);
+        }
+    }
+
+    function dataIsValid(dataIn) {
+        if (dataIn === null) return false;
+        if (dataIn === undefined) return false;
+        if (Object.keys(dataIn) === undefined) return false;
+        if (Object.keys(dataIn).length === 0) return false;
+        return true;
+    }
+
     useEffect(() => {
 
         // resets
         resetTrainMenu();
-        resetInfoMenu();
+        resetInfoMenu(null);
         stopsWeatherCache = {};
         layerReference = {};
 
@@ -187,7 +206,7 @@ export function Map({ region }) {
             type: "click",
             handler: ({ feature }) => {
                 console.log("[INFO]: Clicked map");
-                resetInfoMenu();
+                resetInfoMenu(map);
                 // update current zoom / center
                 setLastZoom(map.getZoom());
                 setLastCenter(map.getCenter());
@@ -247,6 +266,9 @@ export function Map({ region }) {
                 "id": "rain-top-left",
                 "type": "raster",
                 "source": "rain-top-left",
+                "layout": {
+                    visibility: "visible"
+                },
                 "paint": {
                     "raster-contrast": 0.333,
                     "raster-fade-duration": 0,
@@ -299,6 +321,10 @@ export function Map({ region }) {
 
             // =================== Add the railway lines =================== //
             var today = new Date();
+            //var today = new Date("2025-03-25");
+            //today.setHours(15);
+            //today.setMinutes(0);
+
             let {
                 routeShapesToRender,
                 trainShapesToRender,

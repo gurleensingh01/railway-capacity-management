@@ -16,6 +16,13 @@ export function renderStops(
     MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
     onStopClick
   ) {
+    map.loadImage(
+      "triangle-filled-svgrepo-com.png",
+      (error, image) => {
+        if (error) throw error;
+        map.addImage('stop-marker', image);
+      }
+    );
     for (const stopId in stopShapesToRender) {
       const stopCoordinates = stopShapesToRender[stopId];
       const shapeName = getUUIDForLayer();
@@ -34,14 +41,14 @@ export function renderStops(
               },
               properties: {
                 name: shapeName,
-                description: stopId
+                description: "[ " + stopId + " ]"
               }
             }
           ]
         }
       });
 
-      map.addLayer({
+      /*map.addLayer({
         id: shapeName,
         type: "circle",
         source: shapeName,
@@ -55,14 +62,16 @@ export function renderStops(
           "circle-stroke-color": "#000000",
           "circle-stroke-width": 2
         }
-      });
+      });*/
 
       map.addLayer({
-        id: shapeName + "_label",
+        id: shapeName,
         type: "symbol",
         source: shapeName,
         minzoom: MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
         layout: {
+          'icon-image': 'stop-marker',
+          'icon-size': 0.03125,
           'text-field': ['get', 'description'],
           'text-anchor': 'top',
           'text-radial-offset': 0.75,
