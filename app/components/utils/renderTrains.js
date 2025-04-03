@@ -39,6 +39,9 @@ export function renderTrains(
               geometry: {
                 type: "Point",
                 coordinates
+              },
+              properties: {
+                  description: tripId
               }
             }
           ]
@@ -49,7 +52,7 @@ export function renderTrains(
       let tripNum = Number(tripId);
       while (tripNum >= 100) tripNum -= 100;
       const color = "#" + ((1 << 24) * (tripNum / 100) | 0).toString(16).padStart(6, "0");
-  
+
       map.addLayer({
         id: layerId,
         type: "circle",
@@ -63,6 +66,26 @@ export function renderTrains(
           "circle-color": color,
           "circle-stroke-color": "#5f5f5f",
           "circle-stroke-width": 2
+        }
+      });
+
+      map.addLayer({
+        id: layerId + "_label",
+        type: "symbol",
+        source: layerId,
+        minzoom: MINIMUM_ZOOM,
+        layout: {
+          'text-field': ['get', 'description'],
+          'text-variable-anchor': ['bottom', 'bottom-left', 'bottom-right', 'top-left', 'top-right', 'right', 'left'],
+          'text-radial-offset': 1.0,
+          'text-justify': 'auto',
+          'text-size': 18,
+          'text-allow-overlap': true
+        },
+        paint: {
+          'text-color': color,
+          'text-halo-color': '#5f5f5f',
+          'text-halo-width': 1
         }
       });
   

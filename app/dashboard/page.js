@@ -5,7 +5,6 @@ import { auth, db } from "../components/utils/firebase"; // Import Firebase
 import { doc, getDoc } from "firebase/firestore";
 import { RandomLoadMessage } from "../components/utils/randomLoadMessage.js";
 import { Map } from "../components/map.js";
-import { Sidebar } from "../components/sidebar.js";
 import "../styles.css";
 
 export default function DashboardPage() {
@@ -47,9 +46,6 @@ export default function DashboardPage() {
             if (userLocation !== null && userLocation !== undefined && userLocation !== "Unknown") {
                 return (
                     <div className="int_main_container h-[calc(100%-112px)] w-full">
-                        <Sidebar/>
-
-                        {/* Main Content */}
                         <div className="p-4 mb-[-4]">
                             <h1 className="int_title">{greeting}</h1>
                             <h2 className="int_subtitle">Here is your overview for {userLocation}.</h2>
@@ -57,7 +53,6 @@ export default function DashboardPage() {
 
                         <div className="size-full flex flex-row flex-auto grow-0 shrink-0">
                             <Map region={userLocation}/>
-                            {/*<KPI/>*/}
                         </div>
                     </div>
                 );

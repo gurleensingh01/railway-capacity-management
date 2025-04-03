@@ -15,6 +15,12 @@ import { renderTrackOverlays } from "./utils/renderTrackOverlays";
 import { renderWeatherPanel } from "./utils/renderWeatherPanel";
 import { addRailwayLines } from "./utils/railwaylines";
 
+import { useRouter } from "next/navigation";  // Import router to handle navigation
+import "../styles.css";
+import { signOut } from "firebase/auth";
+import { auth } from "./utils/firebase";
+
+
 export function Map({ region }) {
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const WEATHER_FAILED_TEXT = "Could not get weather data.";
@@ -67,21 +73,25 @@ export function Map({ region }) {
 
     const pathname = usePathname();
     const mapContainerRef = useRef();
-    const [trains, setTrains] = useState([]);
-    const [stops, setStops] = useState([]);
-    const [stopTimes, setStopTimes] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [trains, setTrains] = useState({});
+    const [stops, setStops] = useState({});
+    const [stopTimes, setStopTimes] = useState({});
     const [lastZoom, setLastZoom] = useState(null);
     const [lastCenter, setLastCenter] = useState(null);
     const [loading, setLoading] = useState(false);
     var isRouteOnExpandedPage = (pathname === "/map");
 
-    const fetchLatestData = async () => {
+    function toggleSidebar() {
+        setIsSidebarOpen(!isSidebarOpen);
+    }
+
+    async function fetchLatestData() {
         if (!regionCheck(region)) return;
 
         setLoading(true);
-
-        const data = await fetchGTFSData();
-
+        console.clear();
+        let data = await fetchGTFSData();
         setTrains(data.trains);
         setStops(data.stops);
         setStopTimes(data.stopTimes);
@@ -98,40 +108,51 @@ export function Map({ region }) {
         document.getElementById("info_area").innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
     }
 
+    function dataIsValid(dataIn) {
+        if (dataIn === null) return false;
+        if (dataIn === undefined) return false;
+        if (Object.keys(dataIn) === undefined) return false;
+        if (Object.keys(dataIn).length === 0) return false;
+        return true;
+    }
+
+    // cached weather for stops
+    // {
+    //      stopId: weatherData
+    // }
+    var stopsWeatherCache = {};
+
+    // {
+    //      "uuid": {
+    //          "type": [overlay/route_bottom/route_top/stop/train]
+    //          "id": 123
+    //      },
+    //      ...
+    // }
+    var layerReference = {};
+
+    function getUUIDForLayer() {
+        while (true) {
+            var out = self.crypto.randomUUID();
+            if (!(out in layerReference)) return out;
+        }
+    }
+
     useEffect(() => {
+
+        // resets
         resetTrainMenu();
         resetInfoMenu();
+        stopsWeatherCache = {};
+        layerReference = {};
+
         console.log("[INFO]: Load map for region: " + region);
         if (!regionCheck(region)) return;
 
-        if (trains.length === 0) return;
-        if (stops.length === 0) return;
-        if (stopTimes.length === 0) return;
+        if (!dataIsValid(trains) || !dataIsValid(stops) || !dataIsValid(stopTimes)) return;
 
-        // cached weather for stops
-        // {
-        //      stopId: weatherData
-        // }
-        var stopsWeatherCache = {};
-
-        // {
-        //      "uuid": {
-        //          "type": [overlay/route_bottom/route_top/stop/train]
-        //          "id": 123
-        //      },
-        //      ...
-        // }
-        var layerReference = {};
-
-        function getUUIDForLayer() {
-            while (true) {
-                var out = self.crypto.randomUUID();
-                if (!(out in layerReference)) return out;
-            }
-        }
-
-        mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;;
-        const map = new mapboxgl.Map({
+        mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+        let map = new mapboxgl.Map({
             "container": "map",
             "style": "mapbox://styles/mapbox/light-v9",
             "center": lastCenter,
@@ -142,12 +163,12 @@ export function Map({ region }) {
         function setLayerVisibility(layerTypeIn, layerIdIn, isVisible) {
             // isVisible - 0 = false, 1 = true, else = toggle
             for (const uuid in layerReference) {
-                const type = layerReference[uuid]["type"];
+                let type = layerReference[uuid]["type"];
                 if (layerTypeIn === type) {
-                    const id = layerReference[uuid]["id"];
+                    let id = layerReference[uuid]["id"];
                     if (layerIdIn !== null && layerIdIn !== id) continue;
-                    const currentVisibility = (map.getLayoutProperty(uuid, "visibility") === "visible");
-                    const nextVisibility = (isVisible === 0 ? false : (isVisible === 1 ? true : !currentVisibility));
+                    let currentVisibility = (map.getLayoutProperty(uuid, "visibility") === "visible");
+                    let nextVisibility = (isVisible === 0 ? false : (isVisible === 1 ? true : !currentVisibility));
                     console.log("[INFO]: Change visibility for layer " + type + ":" + id + " to " + nextVisibility);
                     map.setLayoutProperty(uuid, "visibility", (nextVisibility ? "visible" : "none"));
                     if (layerIdIn !== null && layerIdIn === id) return nextVisibility;
@@ -160,7 +181,7 @@ export function Map({ region }) {
         map["dragRotate"].disable(); // very laggy
         // map["keyboard"].disable();
         // map["touchZoomRotate"].disable();
-        
+
         // map.getCanvas().style.cursor = 'pointer';
 
         map.addInteraction("map_click", {
@@ -174,7 +195,7 @@ export function Map({ region }) {
                 setLayerVisibility("route_top", null, 0);
             }
         });
-        
+
         map.addControl(new mapboxgl.FullscreenControl());
 
         // update current center
@@ -208,7 +229,7 @@ export function Map({ region }) {
             // check this for more styles
             // https://openweathermap.org/api/weathermaps
 
-            map.addSource("rain-top-left", {
+            /*map.addSource("rain-top-left", {
                 "type": "image",
                 "url": "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey,
                 "coordinates": [
@@ -234,7 +255,7 @@ export function Map({ region }) {
                     "raster-resampling": "linear",
                     "raster-saturation": 0.333
                 }
-            });
+            });*/
 
             // map action buttons
             const mapActions = document.getElementById("mapActions");
@@ -279,7 +300,7 @@ export function Map({ region }) {
 
             // =================== Add the railway lines =================== //
             var today = new Date();
-            const {
+            let {
                 routeShapesToRender,
                 trainShapesToRender,
                 stopShapesToRender,
@@ -334,7 +355,7 @@ export function Map({ region }) {
 
             // add all overlays to unsortedTrackOverlaySegments
             for (const entry in trackOverlaysToRender) {
-                const ref = trackOverlaysToRender[entry];
+                let ref = trackOverlaysToRender[entry];
                 unsortedTrackOverlaySegments.push(
                     {
                         "trains": ref["trains"].length,
@@ -425,26 +446,26 @@ export function Map({ region }) {
                 async (stopId, stopCoordinates, shapeName) => {
                   console.log("[INFO]: Clicked stop: " + stopId);
                   
-                  const infoArea = document.getElementById("info_area");
+                  let infoArea = document.getElementById("info_area");
                   infoArea.innerHTML = "";
               
-                  const stopInfoDiv = document.createElement("div");
+                  let stopInfoDiv = document.createElement("div");
                   stopInfoDiv.id = stopId + "_menu_div";
               
-                  const stopInfoConstant = document.createElement("p");
-                  stopInfoConstant.id = stopId + "_menu_p_constant";
+                  let stopInfoP = document.createElement("p");
+                  stopInfoP.id = stopId + "_menu_p_constant";
                   let constantInfoStringBuilder = "<b>Stop ID</b><br>" + stopId + "<br><br>";
               
-                  const schedule = stopTrainSchedule[stopId];
+                  let schedule = stopTrainSchedule[stopId];
                   let hasTrains = false;
                   constantInfoStringBuilder += "<b>Scheduled Trains</b>";
               
                   if (schedule) {
                     for (const scheduledTrain of schedule) {
                       for (const tripId in scheduledTrain) {
-                        const time = scheduledTrain[tripId];
-                        const hours = String(time.getHours()).padStart(2, "0");
-                        const minutes = String(time.getMinutes()).padStart(2, "0");
+                        let time = scheduledTrain[tripId];
+                        let hours = String(time.getHours()).padStart(2, "0");
+                        let minutes = String(time.getMinutes()).padStart(2, "0");
                         constantInfoStringBuilder += `<br>${hours}:${minutes} - ${tripId}`;
                         hasTrains = true;
                       }
@@ -453,12 +474,12 @@ export function Map({ region }) {
               
                   if (!hasTrains) constantInfoStringBuilder += "<br>No trains scheduled";
                   constantInfoStringBuilder += "<br><br><b>Current Weather</b><br>";
-                  stopInfoConstant.innerHTML = constantInfoStringBuilder;
+                  stopInfoP.innerHTML = constantInfoStringBuilder;
               
-                  const stopInfoWeather = document.createElement("div");
+                  let stopInfoWeather = document.createElement("div");
                   stopInfoWeather.innerHTML = WEATHER_LOADING_PLACEHOLDER;
               
-                  stopInfoDiv.appendChild(stopInfoConstant);
+                  stopInfoDiv.appendChild(stopInfoP);
                   stopInfoDiv.appendChild(stopInfoWeather);
                   infoArea.appendChild(stopInfoDiv);
               
@@ -502,6 +523,23 @@ export function Map({ region }) {
 
     return (
         <div className="size-full flex flex-row gap-4">
+            <div className="map_menu_section">
+                <div className="map_menu">
+                    <h2 className="map_menu_title">Info</h2>
+                    <div id="info_area" className="map_menu_content">{INFO_PANEL_DEFAULT_INNERHTML}</div>
+                </div>
+                <div className="map_menu" style={{
+                    height: isSidebarOpen ? "100%" : "72px",
+                }}>
+                    <div className="w-full h-fit flex flex-row justify-between pb-4">
+                        <h2 className="map_menu_title text-left">Trains</h2>
+                        <div className="w-16 h-9 flex flex-col justify-center content-center">
+                            <button className="light_button_mini text-right" onClick={toggleSidebar}>{isSidebarOpen ? "Collapse" : "Expand"}</button>
+                        </div>
+                    </div>
+                    <div id="train_menu" className="map_menu_content">{TRAIN_MENU_DEFAULT_INNERHTML}</div>
+                </div>
+            </div>
             <div className="map_section">
                 <div className="map_buttons_section">
                     {!isRouteOnExpandedPage &&
@@ -509,9 +547,7 @@ export function Map({ region }) {
                     }
                     <div className="size-full flex flex-row justify-between ml-1">
                         <div className="flex flex-row gap-2 text-left">
-                            {!isRouteOnExpandedPage &&
-                                <Link className="dark_button_mini" href="/map">Expand Map</Link>
-                            }
+                            {/*!isRouteOnExpandedPage && <Link className="dark_button_mini" href="/map">Expand Map</Link>*/}
                         </div>
                         <div id="mapActions" className="flex flex-row gap-2 text-right">
                             <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
@@ -521,16 +557,6 @@ export function Map({ region }) {
                     </div>
                 </div>
                 <div id="map" ref={mapContainerRef} className="size-full"></div>
-            </div>
-            <div className="map_menu_section">
-                <div className="map_menu">
-                    <h2 className="map_menu_title">Info</h2>
-                    <div id="info_area" className="map_menu_content">{INFO_PANEL_DEFAULT_INNERHTML}</div>
-                </div>
-                <div className="map_menu">
-                    <h2 className="map_menu_title">Trains</h2>
-                    <div id="train_menu" className="map_menu_content">{TRAIN_MENU_DEFAULT_INNERHTML}</div>
-                </div>
             </div>
         </div>
     );

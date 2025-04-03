@@ -156,7 +156,7 @@ sup {
 .map_menu {
     background-color: var(--main-color-dark);
     color: var(--main-color-light);
-    height: 50%;
+    height: 100%;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -224,7 +224,7 @@ input:not(:focus) {
 /********* buttons *********/
 
 
-.light_button, .dark_button, .dark_button_mini {
+.light_button, .dark_button, .light_button_mini, .dark_button_mini {
     border-radius: 32px;
     transition: var(--main-animation-time);
 }
@@ -248,21 +248,33 @@ input:not(:focus) {
     text-align: center;
 }
 
-.dark_button_mini {
-    background-color: var(--main-color-dark);
-    color: var(--main-color-light);
-    font-size: 13px;
+.light_button_mini, .dark_button_mini {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: middle;
+    font-size: 12px;
     text-align: center;
     width: auto;
     height: auto;
-    padding: 4px 8px;
+    padding: 2px 4px;
 }
 
-.dark_button:hover, .dark_button_mini:hover, .light_button:hover {
+.light_button_mini {
+    background-color: var(--main-color-light);
+    color: var(--main-color-dark);
+}
+
+.dark_button_mini {
+    background-color: var(--main-color-dark);
+    color: var(--main-color-light);
+}
+
+.dark_button:hover, .dark_button_mini:hover, .light_button:hover, .light_button_mini:hover {
     box-shadow: 0 0 8px var(--main-color-dark);
 }
 
-.dark_button:not(:hover), .dark_button_mini:not(:hover), .light_button:not(:hover) {
+.dark_button:not(:hover), .dark_button_mini:not(:hover), .light_button:not(:hover), .light_button_mini:not(:hover) {
     box-shadow: none;
 }
 
@@ -276,6 +288,7 @@ input:not(:focus) {
     color: var(--main-color-dark);
     box-shadow: 0 0 16px var(--main-color-dark);
     transition: var(--main-animation-time);
+    overflow: scroll;
 }
 
 .menu_button {

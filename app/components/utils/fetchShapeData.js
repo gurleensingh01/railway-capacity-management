@@ -216,7 +216,6 @@ export async function fetchGTFSData() {
             }
         }
 
-
         return { 
             trains,
             stops,

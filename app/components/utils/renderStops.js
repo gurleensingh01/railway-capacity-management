@@ -33,13 +33,14 @@ export function renderStops(
                 coordinates: stopCoordinates
               },
               properties: {
-                name: shapeName
+                name: shapeName,
+                description: stopId
               }
             }
           ]
         }
       });
-  
+
       map.addLayer({
         id: shapeName,
         type: "circle",
@@ -53,6 +54,25 @@ export function renderStops(
           "circle-color": "#808080",
           "circle-stroke-color": "#000000",
           "circle-stroke-width": 2
+        }
+      });
+
+      map.addLayer({
+        id: shapeName + "_label",
+        type: "symbol",
+        source: shapeName,
+        minzoom: MINIMUM_ZOOM_FOR_STOP_VISIBILITY,
+        layout: {
+          'text-field': ['get', 'description'],
+          'text-anchor': 'top',
+          'text-radial-offset': 0.75,
+          'text-justify': 'auto',
+          'text-size': 14
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': '#000000',
+          'text-halo-width': 1
         }
       });
   

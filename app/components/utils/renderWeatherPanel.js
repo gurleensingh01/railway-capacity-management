@@ -14,12 +14,13 @@ export function renderWeatherPanel(container, weather) {
     // ==== Current Weather ====
     const nowDiv = document.createElement("div");
     nowDiv.className = sectionClass;
-  
+
     const iconImg = document.createElement("img");
-    iconImg.src = weather.now.icon;
+    iconImg.src = weather["now"]["icon"];
     iconImg.width = 32;
     iconImg.height = 32;
-  
+    iconImg.className = "size-fit flex flex-row justify-left text-left place-content-center"
+
     const nowTextDiv = document.createElement("div");
     nowTextDiv.className = "w-full flex flex-col justify-right text-right place-content-center mt-[-10px]";
   
@@ -61,12 +62,13 @@ export function renderWeatherPanel(container, weather) {
   
       const contentDiv = document.createElement("div");
       contentDiv.className = sectionClass;
-  
+
       const forecastIcon = document.createElement("img");
-      forecastIcon.src = ref.icon;
-      forecastIcon.width = 20;
-      forecastIcon.height = 20;
-  
+      forecastIcon.src = weather["now"]["icon"];
+      forecastIcon.width = 32;
+      forecastIcon.height = 32;
+      forecastIcon.className = "size-fit flex flex-row justify-left text-left place-content-center"
+
       const textDiv = document.createElement("div");
       textDiv.className = "w-full flex flex-col justify-right text-right place-content-center";
   
