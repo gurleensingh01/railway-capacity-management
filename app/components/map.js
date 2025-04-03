@@ -73,17 +73,16 @@ export function Map({ region }) {
 
     const pathname = usePathname();
     const mapContainerRef = useRef();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isTrainsSectionExpanded, setIsTrainsSectionExpanded] = useState(false);
     const [trains, setTrains] = useState({});
     const [stops, setStops] = useState({});
     const [stopTimes, setStopTimes] = useState({});
     const [lastZoom, setLastZoom] = useState(null);
     const [lastCenter, setLastCenter] = useState(null);
     const [loading, setLoading] = useState(false);
-    var isRouteOnExpandedPage = (pathname === "/map");
 
     function toggleSidebar() {
-        setIsSidebarOpen(!isSidebarOpen);
+        setIsTrainsSectionExpanded(!isTrainsSectionExpanded);
     }
 
     async function fetchLatestData() {
@@ -229,7 +228,7 @@ export function Map({ region }) {
             // check this for more styles
             // https://openweathermap.org/api/weathermaps
 
-            /*map.addSource("rain-top-left", {
+            map.addSource("rain-top-left", {
                 "type": "image",
                 "url": "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey,
                 "coordinates": [
@@ -255,7 +254,7 @@ export function Map({ region }) {
                     "raster-resampling": "linear",
                     "raster-saturation": 0.333
                 }
-            });*/
+            });
 
             // map action buttons
             const mapActions = document.getElementById("mapActions");
@@ -529,12 +528,12 @@ export function Map({ region }) {
                     <div id="info_area" className="map_menu_content">{INFO_PANEL_DEFAULT_INNERHTML}</div>
                 </div>
                 <div className="map_menu" style={{
-                    height: isSidebarOpen ? "100%" : "72px",
+                    height: isTrainsSectionExpanded ? "100%" : "72px",
                 }}>
                     <div className="w-full h-fit flex flex-row justify-between pb-4">
                         <h2 className="map_menu_title text-left">Trains</h2>
-                        <div className="w-16 h-9 flex flex-col justify-center content-center">
-                            <button className="light_button_mini text-right" onClick={toggleSidebar}>{isSidebarOpen ? "Collapse" : "Expand"}</button>
+                        <div className="flex flex-col justify-center content-center">
+                            <button className="light_button_mini text-right" onClick={toggleSidebar}>{isTrainsSectionExpanded ? "Collapse" : "Expand"}</button>
                         </div>
                     </div>
                     <div id="train_menu" className="map_menu_content">{TRAIN_MENU_DEFAULT_INNERHTML}</div>
@@ -542,9 +541,7 @@ export function Map({ region }) {
             </div>
             <div className="map_section">
                 <div className="map_buttons_section">
-                    {!isRouteOnExpandedPage &&
-                        <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
-                    }
+                    <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
                     <div className="size-full flex flex-row justify-between ml-1">
                         <div className="flex flex-row gap-2 text-left">
                             {/*!isRouteOnExpandedPage && <Link className="dark_button_mini" href="/map">Expand Map</Link>*/}

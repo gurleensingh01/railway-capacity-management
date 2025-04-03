@@ -257,7 +257,7 @@ input:not(:focus) {
     text-align: center;
     width: auto;
     height: auto;
-    padding: 2px 4px;
+    padding: 2px 8px;
 }
 
 .light_button_mini {
