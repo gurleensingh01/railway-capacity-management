@@ -15,12 +15,6 @@ import { renderTrackOverlays } from "./utils/renderTrackOverlays";
 import { renderWeatherPanel } from "./utils/renderWeatherPanel";
 import { addRailwayLines } from "./utils/railwaylines";
 
-import { useRouter } from "next/navigation";  // Import router to handle navigation
-import "../styles.css";
-import { signOut } from "firebase/auth";
-import { auth } from "./utils/firebase";
-
-
 export function Map({ region }) {
     const WEATHER_LOADING_PLACEHOLDER = "Loading weather...";
     const WEATHER_FAILED_TEXT = "Could not get weather data.";
