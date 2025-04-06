@@ -9,99 +9,115 @@
  * @param {function} flyToTrain - Callback to center the map on a train.
  */
 export function renderTrains(
-  map,
-  trainShapesToRender,
-  getUUIDForLayer,
-  addLayerReference,
-  setLayerVisibility,
-  flyToTrain
-) {
-  const MINIMUM_ZOOM = 5.0;
-
-  const menu = document.getElementById("train_menu");
-  menu.innerHTML = "";
-
-  const buttonBase = "h-fit w-[64px] p-1 map_menu_item_active text-center";
-  const buttonActive = buttonBase + " map_menu_item_active";
-  const buttonInactive = buttonBase + " map_menu_item_inactive";
-
-  for (const tripId in trainShapesToRender) {
-    const { coordinates, isMoving } = trainShapesToRender[tripId];
-    const layerId = getUUIDForLayer();
-
-    // Add the source for the train marker.
-    map.addSource(layerId, {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates
-            },
-            properties: {
-              description: "#" + tripId
+    map,
+    trainShapesToRender,
+    getUUIDForLayer,
+    addLayerReference,
+    setLayerVisibility,
+    flyToTrain
+  ) {
+    const MINIMUM_ZOOM = 5.0;
+  
+    const menu = document.getElementById("train_menu");
+    menu.innerHTML = "";
+  
+    const buttonBase = "h-fit w-[64px] p-1 map_menu_item_active text-center";
+    const buttonActive = buttonBase + " map_menu_item_active";
+    const buttonInactive = buttonBase + " map_menu_item_inactive";
+    for (const tripId in trainShapesToRender) {
+      const { coordinates, isMoving } = trainShapesToRender[tripId];
+      const layerId = getUUIDForLayer();
+  
+      map.addSource(layerId, {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates
+              },
+              properties: {
+                  description: "#" + tripId
+              }
             }
-          }
-        ]
-      }
-    });
+          ]
+        }
+      });
+  
+      // Generate color based on ID
+      let tripNum = Number(tripId);
+      while (tripNum >= 100) tripNum -= 100;
+      const color = "#" + ((1 << 24) * (tripNum / 100) | 0).toString(16).padStart(6, "0");
 
-    // Generate a color based on the train ID.
-    let tripNum = Number(tripId);
-    while (tripNum >= 100) tripNum -= 100;
-    const color = "#" + ((1 << 24) * (tripNum / 100) | 0).toString(16).padStart(6, "0");
+      map.addLayer({
+        id: layerId,
+        type: "circle",
+        minzoom: MINIMUM_ZOOM,
+        source: layerId,
+        layout: {
+          visibility: "visible"
+        },
+        paint: {
+          "circle-radius": 12,
+          "circle-color": color,
+          "circle-stroke-color": "#5f5f5f",
+          "circle-stroke-width": 2
+        }
+      });
 
-    // Add the circle layer to represent the train.
-    map.addLayer({
-      id: layerId,
-      type: "circle",
-      minzoom: MINIMUM_ZOOM,
-      source: layerId,
-      layout: {
-        visibility: "visible"
-      },
-      paint: {
-        "circle-radius": 12,
-        "circle-color": color,
-        "circle-stroke-color": "#5f5f5f",
-        "circle-stroke-width": 2
-      }
-    });
+      map.addLayer({
+        id: layerId + "_label",
+        type: "symbol",
+        source: layerId,
+        minzoom: MINIMUM_ZOOM,
+        layout: {
+          'text-field': ['get', 'description'],
+          'text-variable-anchor': ['bottom', 'bottom-left', 'bottom-right', 'top-left', 'top-right', 'right', 'left'],
+          'text-radial-offset': 1.0,
+          'text-justify': 'auto',
+          'text-size': 18,
+          'text-allow-overlap': true,
+          visibility: "visible"
+        },
+        paint: {
+          'text-color': color,
+          'text-halo-color': '#5f5f5f',
+          'text-halo-width': 1
+        }
+      });
+  
+      addLayerReference(layerId, { type: "train", id: tripId });
+      addLayerReference(layerId + "_label", { type: "train_label", id: tripId });
+  
+      map.addInteraction(layerId + "_click", {
+        type: "click",
+        target: { layerId },
+        handler: () => {
+          const info = document.getElementById("info_area");
+          info.innerHTML = `
+            <b>Train ID</b><br>${tripId}<br><br>
+            <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
+            <b>Status</b><br>${isMoving ? "Enroute to next station" : "Stopped at station"}
+          `;
+          setLayerVisibility("route_top", null, 0);
+          setLayerVisibility("route_top", tripId, 1);
+        }
+      });
+  
+      // ===== Add Train to Menu ===== //
+      const trainDiv = document.createElement("div");
+      trainDiv.id = `${tripId}_menu_div`;
+      trainDiv.className = "flex flex-row h-fit w-full justify-between";
 
-    // Add a label layer for the train.
-    map.addLayer({
-      id: layerId + "_label",
-      type: "symbol",
-      source: layerId,
-      minzoom: MINIMUM_ZOOM,
-      layout: {
-        'text-field': ['get', 'description'],
-        'text-variable-anchor': ['bottom', 'bottom-left', 'bottom-right', 'top-left', 'top-right', 'right', 'left'],
-        'text-radial-offset': 1.0,
-        'text-justify': 'auto',
-        'text-size': 18,
-        'text-allow-overlap': true,
-        visibility: "visible"
-      },
-      paint: {
-        'text-color': color,
-        'text-halo-color': '#5f5f5f',
-        'text-halo-width': 1
-      }
-    });
-
-    // Register the layers.
-    addLayerReference(layerId, { type: "train", id: tripId });
-    addLayerReference(layerId + "_label", { type: "train_label", id: tripId });
-
-    // Add interaction to show train info when clicking on the marker.
-    map.addInteraction(layerId + "_click", {
-      type: "click",
-      target: { layerId },
-      handler: () => {
+      const locator = document.createElement("a");
+      locator.href = "#";
+      locator.className = buttonActive + " flex flex-row";
+      locator.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const info = document.getElementById("info_area");
         info.innerHTML = `
           <b>Train ID</b><br>${tripId}<br><br>
@@ -110,68 +126,35 @@ export function renderTrains(
         `;
         setLayerVisibility("route_top", null, 0);
         setLayerVisibility("route_top", tripId, 1);
-      }
-    });
+        flyToTrain(coordinates);
+      };
 
-    // ===== Add Train to Menu ===== //
-    const trainDiv = document.createElement("div");
-    trainDiv.id = `${tripId}_menu_div`;
-    trainDiv.className = "flex flex-row h-fit w-full justify-between";
+      let coloredDiv = document.createElement("div");
+      coloredDiv.className = "size-[16px] rounded-full ml-1 mt-1 shrink-0";
+      coloredDiv.style.backgroundColor = color;
 
-    // Locator link that centers the map on the train and updates the info panel.
-    const locator = document.createElement("a");
-    locator.href = "#";
-    locator.className = buttonActive + " flex flex-row";
-    locator.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const info = document.getElementById("info_area");
-      info.innerHTML = `
-        <b>Train ID</b><br>${tripId}<br><br>
-        <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
-        <b>Status</b><br>${isMoving ? "Enroute to next station" : "Stopped at station"}
-      `;
-      setLayerVisibility("route_top", null, 0);
-      setLayerVisibility("route_top", tripId, 1);
-      flyToTrain(coordinates);
-    };
+      let locatorP = document.createElement("p");
+      locatorP.innerHTML = tripId;
+      locatorP.className = "justify-center w-full text-center";
 
-    let coloredDiv = document.createElement("div");
-    coloredDiv.className = "size-[16px] rounded-full ml-1 mt-1 shrink-0";
-    coloredDiv.style.backgroundColor = color;
-
-    let locatorP = document.createElement("p");
-    locatorP.innerHTML = tripId;
-    locatorP.className = "justify-center w-full text-center";
-
-    // Toggle button to hide or show the train on the map.
-    const toggle = document.createElement("a");
-    toggle.href = "#";
-    toggle.textContent = "Hide";
-    toggle.className = buttonActive;
-    toggle.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const visible = setLayerVisibility("train", tripId, 2);
-      setLayerVisibility("train_label", tripId, visible);
-      toggle.className = visible ? buttonActive : buttonInactive;
-      toggle.textContent = visible ? "Hide" : "Show";
-      
-      // Update the info panel if the train is hidden.
-      if (!visible) {
-        const info = document.getElementById("info_area");
-        info.innerHTML = `
-          <b>Train ID</b><br>${tripId}<br><br>
-          <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
-          <b>Status</b><br>Hidden
-        `;
-      }
-    };
-
-    locator.appendChild(coloredDiv);
-    locator.appendChild(locatorP);
-    trainDiv.appendChild(locator);
-    trainDiv.appendChild(toggle);
-    menu.appendChild(trainDiv);
+      const toggle = document.createElement("a");
+      toggle.href = "#";
+      toggle.textContent = "Hide";
+      toggle.className = buttonActive;
+      toggle.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const visible = setLayerVisibility("train", tripId, 2);
+        setLayerVisibility("train_label", tripId, visible);
+        toggle.className = visible ? buttonActive : buttonInactive;
+        toggle.textContent = visible ? "Hide" : "Show";
+      };
+  
+      locator.appendChild(coloredDiv);
+      locator.appendChild(locatorP);
+      trainDiv.appendChild(locator);
+      trainDiv.appendChild(toggle);
+      menu.appendChild(trainDiv);
+    }
   }
-}
+  
