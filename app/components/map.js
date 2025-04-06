@@ -125,6 +125,14 @@ export function Map({ region }) {
         document.getElementById("train_menu").innerHTML = TRAIN_MENU_DEFAULT_INNERHTML;
     }
 
+    function dataIsValid(dataIn) {
+        if (dataIn === null) return false;
+        if (dataIn === undefined) return false;
+        if (Object.keys(dataIn) === undefined) return false;
+        if (Object.keys(dataIn).length === 0) return false;
+        return true;
+    }
+
     function resetInfoMenu(mapIn) {
         let info = document.getElementById("info_area");
         info.innerHTML = INFO_PANEL_DEFAULT_INNERHTML;
@@ -146,18 +154,33 @@ export function Map({ region }) {
             div.appendChild(coloredDesc);
             info.appendChild(div);
         }
-    }
-
-    function dataIsValid(dataIn) {
-        if (dataIn === null) return false;
-        if (dataIn === undefined) return false;
-        if (Object.keys(dataIn) === undefined) return false;
-        if (Object.keys(dataIn).length === 0) return false;
-        return true;
+        
+        // add hidden trains
+        let hiddenTitle = document.createElement("h2");
+        hiddenTitle.className="map_menu_title mt-4";
+        hiddenTitle.innerHTML="Hidden Trains"
+        let hiddenList = document.createElement("ul");
+        hiddenList.className = "list-disc pl-4";
+        let hasEntries = false;
+        if (mapIn !== null) {
+            for (const uuid in layerReference) {
+                let type = layerReference[uuid]["type"];
+                if (type !== "train") continue;
+                let currentVisibility = (mapIn.getLayoutProperty(uuid, "visibility") === "visible");
+                if (currentVisibility) continue;
+                let entry = document.createElement("li");
+                entry.innerHTML = layerReference[uuid]["id"];
+                hiddenList.appendChild(entry);
+                hasEntries = true;
+            }
+        }
+        if (hasEntries) {
+            info.appendChild(hiddenTitle);
+            info.appendChild(hiddenList);
+        }
     }
 
     useEffect(() => {
-
         // resets
         resetTrainMenu();
         resetInfoMenu(null);
@@ -450,6 +473,7 @@ export function Map({ region }) {
                 getUUIDForLayer,
                 (uuid, ref) => layerReference[uuid] = ref,
                 setLayerVisibility,
+                resetInfoMenu,
                 (coordinates) => {
                   map.flyTo({
                     center: coordinates,

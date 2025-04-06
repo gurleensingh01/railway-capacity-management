@@ -6,6 +6,7 @@
  * @param {function} getUUIDForLayer - Generates a unique layer ID.
  * @param {function} addLayerReference - Registers layer metadata.
  * @param {function} setLayerVisibility - Toggles visibility of layers.
+ * @Param {function} resetInfoMenu - the info menu reset function
  * @param {function} flyToTrain - Callback to center the map on a train.
  */
 export function renderTrains(
@@ -14,6 +15,7 @@ export function renderTrains(
     getUUIDForLayer,
     addLayerReference,
     setLayerVisibility,
+    resetInfoMenu,
     flyToTrain
   ) {
     const MINIMUM_ZOOM = 5.0;
@@ -148,6 +150,7 @@ export function renderTrains(
         setLayerVisibility("train_label", tripId, visible);
         toggle.className = visible ? buttonActive : buttonInactive;
         toggle.textContent = visible ? "Hide" : "Show";
+        resetInfoMenu(map);
       };
   
       locator.appendChild(coloredDiv);
