@@ -578,7 +578,7 @@ export function Map({ region }) {
                     <div id="info_area" className="map_menu_content">{INFO_PANEL_DEFAULT_INNERHTML}</div>
                 </div>
                 <div className="map_menu" style={{
-                    height: isTrainsSectionExpanded ? "100%" : "72px",
+                    height: isTrainsSectionExpanded ? "50%" : "72px",
                 }}>
                     <div className="w-full h-fit flex flex-row justify-between pb-4">
                         <h2 className="map_menu_title text-left">Trains</h2>

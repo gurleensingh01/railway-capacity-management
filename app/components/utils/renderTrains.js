@@ -21,11 +21,10 @@ export function renderTrains(
     const MINIMUM_ZOOM = 5.0;
   
     const menu = document.getElementById("train_menu");
-    menu.innerHTML = "";
-  
     const buttonBase = "h-fit w-[64px] p-1 map_menu_item_active text-center";
     const buttonActive = buttonBase + " map_menu_item_active";
     const buttonInactive = buttonBase + " map_menu_item_inactive";
+    menu.innerHTML = (Object.keys(trainShapesToRender).length === 0) ? "There are currently no trains running in your region." : "";
     for (const tripId in trainShapesToRender) {
       const { coordinates, isMoving } = trainShapesToRender[tripId];
       const layerId = getUUIDForLayer();
