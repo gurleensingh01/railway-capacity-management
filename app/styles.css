@@ -129,7 +129,7 @@ sup {
 }
 
 .map_section {
-    width: 87.5%;
+    width: 90%;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -146,8 +146,8 @@ sup {
 }
 
 .map_menu_section {
-    min-width: 208px;
-    width: 12.5%;
+    min-width: 196px;
+    width: 10%;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -175,7 +175,10 @@ sup {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    overflow: scroll;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    padding-right: 12px;
+    margin-right: -12px;
 }
 
 .map_menu_item_active {

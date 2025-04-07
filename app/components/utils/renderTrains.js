@@ -21,7 +21,7 @@ export function renderTrains(
     const MINIMUM_ZOOM = 5.0;
   
     const menu = document.getElementById("train_menu");
-    const buttonBase = "h-fit w-[64px] p-1 map_menu_item_active text-center";
+    const buttonBase = "h-fit w-[72px] p-1 map_menu_item_active text-center";
     const buttonActive = buttonBase + " map_menu_item_active";
     const buttonInactive = buttonBase + " map_menu_item_inactive";
     menu.innerHTML = (Object.keys(trainShapesToRender).length === 0) ? "There are currently no trains running in your region." : "";
@@ -136,7 +136,7 @@ export function renderTrains(
 
       let locatorP = document.createElement("p");
       locatorP.innerHTML = tripId;
-      locatorP.className = "justify-center w-full text-center";
+      locatorP.className = "w-full h-fit justify-center text-center";
 
       const toggle = document.createElement("a");
       toggle.href = "#";
