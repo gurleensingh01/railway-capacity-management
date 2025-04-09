@@ -7,6 +7,7 @@
  * @param {function} addLayerReference - Registers layer metadata.
  * @param {function} setLayerVisibility - Toggles visibility of layers.
  * @Param {function} resetInfoMenu - the info menu reset function
+ * @param {dictionary} trainRemainingCoordinates - train remaining distances
  * @param {function} flyToTrain - Callback to center the map on a train.
  */
 export function renderTrains(
@@ -16,6 +17,7 @@ export function renderTrains(
     addLayerReference,
     setLayerVisibility,
     resetInfoMenu,
+    trainRemainingCoordinates,
     flyToTrain
   ) {
     const MINIMUM_ZOOM = 5.0;
@@ -92,17 +94,36 @@ export function renderTrains(
   
       addLayerReference(layerId, { type: "train", id: tripId });
       addLayerReference(layerId + "_label", { type: "train_label", id: tripId });
-  
+      let trainDistances = Object.keys(trainRemainingCoordinates[tripId]);
+      if (tripId === "270") {
+        console.log(String(JSON.stringify(trainDistances)));
+      }
+      let trainDistanceMin = parseFloat(trainDistances[0]);
+      let trainDistanceMax = parseFloat(trainDistances[trainDistances.length - 1]);
+      let trainDistanceRemaining = trainDistanceMax - trainDistanceMin;
+      let unit = "meters";
+      if (trainDistanceRemaining >= 1000) {
+        trainDistanceRemaining = trainDistanceRemaining / 1000;
+        unit = "kilometers";
+      }
+      if (trainDistanceRemaining < 0) {
+        trainDistanceRemaining = "Distance is not available for this train.";
+        unit = "";
+      } else {
+        trainDistanceRemaining = Math.round(trainDistanceRemaining * 2) / 2;
+      }
+      let trainInfoContent = `<b>Train ID</b><br>${tripId}<br><br>
+            <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
+            <b>Status</b><br>${isMoving ? "Enroute to next station" : "Stopped at station"}<br><br>
+            <b>Distance Remaining</b><br>${trainDistanceRemaining}  ${unit}
+      `;
+
       map.addInteraction(layerId + "_click", {
         type: "click",
         target: { layerId },
         handler: () => {
           const info = document.getElementById("info_area");
-          info.innerHTML = `
-            <b>Train ID</b><br>${tripId}<br><br>
-            <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
-            <b>Status</b><br>${isMoving ? "Enroute to next station" : "Stopped at station"}
-          `;
+          info.innerHTML = trainInfoContent;
           setLayerVisibility("route_top", null, 0);
           setLayerVisibility("route_top", tripId, 1);
         }
@@ -120,11 +141,7 @@ export function renderTrains(
         e.preventDefault();
         e.stopPropagation();
         const info = document.getElementById("info_area");
-        info.innerHTML = `
-          <b>Train ID</b><br>${tripId}<br><br>
-          <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
-          <b>Status</b><br>${isMoving ? "Enroute to next station" : "Stopped at station"}
-        `;
+        info.innerHTML = trainInfoContent;
         setLayerVisibility("route_top", null, 0);
         setLayerVisibility("route_top", tripId, 1);
         flyToTrain(coordinates);

@@ -1,24 +1,24 @@
 export const fetchWeatherData = async (lat, lon) => {
     const apiKey = process.env.NEXT_PUBLIC_WEATHERAPI_KEY;
     if (!apiKey) {
-        console.error("WeatherAPI Key is missing!");
+        console.error("[ERROR]: WeatherAPI Key is missing!");
         return null;
     }
 
     const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${lon}&days=14`;
 
     try {
-        console.log("Fetching weather from:", url);
+        console.log("[INFO]: Fetching weather from:", url);
         const response = await fetch(url);
 
         if (!response.ok) {
-            console.error(`Weather API Error: ${response.status}`);
+            console.error(`[ERROR]: Weather API Error: ${response.status}`);
             return null;
         }
 
         const data = await response.json();
         if (!data || !data.current) {
-            console.error("No weather data received for:", lat, lon);
+            console.error("[ERROR]: No weather data received for:", lat, lon);
             return null;
         }
         
@@ -27,7 +27,7 @@ export const fetchWeatherData = async (lat, lon) => {
         out["now"]["temp"] = Math.round(data["current"]["temp_c"]);
         out["now"]["desc"] = data["current"]["condition"]["text"];
         out["now"]["icon"] = data["current"]["condition"]["icon"];
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < data["forecast"]["forecastday"].length; i++) {
             out[`${i}`] = {};
             out[`${i}`]["date"] = data["forecast"]["forecastday"][i]["date"];
             out[`${i}`]["maxtemp"] = Math.round(data["forecast"]["forecastday"][i]["day"]["maxtemp_c"]);
@@ -39,7 +39,7 @@ export const fetchWeatherData = async (lat, lon) => {
 
         return out;
     } catch (error) {
-        console.error("Fetch error:", error);
+        console.error("[ERROR]: Fetch error:", error);
         return null;
     }
 };

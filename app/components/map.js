@@ -344,9 +344,9 @@ export function Map({ region }) {
 
             // =================== Add the railway lines =================== //
             var today = new Date();
-            //var today = new Date("2025-03-25");
+            //var today = new Date("2025-04-10");
             //today.setHours(15);
-            //today.setMinutes(0);
+            //today.setMinutes(49);
 
             let {
                 routeShapesToRender,
@@ -474,6 +474,7 @@ export function Map({ region }) {
                 (uuid, ref) => layerReference[uuid] = ref,
                 setLayerVisibility,
                 resetInfoMenu,
+                trainRemainingCoordinates,
                 (coordinates) => {
                   map.flyTo({
                     center: coordinates,
@@ -562,6 +563,7 @@ export function Map({ region }) {
             console.log("[INFO]: Total stops : " + totalStops);
             console.log("[INFO]: Total trains: " + totalTrains);
 
+            document.getElementById("mapUpdatedTime").innerHTML = "(Updated at: " + today.toLocaleString() + ")";
             setLoading(false);
         });
 
@@ -591,16 +593,14 @@ export function Map({ region }) {
             </div>
             <div className="map_section">
                 <div className="map_buttons_section">
-                    <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
-                    <div className="size-full flex flex-row justify-between ml-1">
-                        <div className="flex flex-row gap-2 text-left">
-                            {/*!isRouteOnExpandedPage && <Link className="dark_button_mini" href="/map">Expand Map</Link>*/}
-                        </div>
-                        <div id="mapActions" className="flex flex-row gap-2 text-right">
-                            <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
-                                {loading ? "Fetching Data..." : "Fetch Latest Data"}
-                            </Link>
-                        </div>
+                    <div className="flex flex-row gap-2">
+                        <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
+                        <p id="mapUpdatedTime" className="whitespace-nowrap overflow-scroll"></p>
+                    </div>
+                    <div id="mapActions" className="flex flex-row justify-between gap-2 mr-0 ml-auto">
+                        <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
+                            {loading ? "Fetching Data..." : "Fetch Latest Data"}
+                        </Link>
                     </div>
                 </div>
                 <div id="map" ref={mapContainerRef} className="size-full"></div>
