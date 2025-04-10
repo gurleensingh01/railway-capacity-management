@@ -83,7 +83,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="w-full flex flex-col justify-items-end text-right mt-2">
                                 <div className="w-full flex flex-row whitespace-nowrap justify-end">
-                                    <p className="text-m">{userMessage}&#20;</p>
+                                    <p className="text-m mr-1">{userMessage}</p>
                                     <p className="text-m"><b>{userEmail}</b></p>
                                 </div>
                                 <a onClick={handleLogout} href="#" className="w-[80px] dark_button_mini ml-auto mr-0 py-2 px-6">Log Out</a>

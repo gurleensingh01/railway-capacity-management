@@ -590,7 +590,7 @@ export function Map({ region }) {
                 <div className="map_buttons_section">
                     <div className="flex flex-row gap-2">
                         <h3 className="int_label whitespace-nowrap text-left">Railway Map</h3>
-                        <p id="mapUpdatedTime" className="whitespace-nowrap overflow-scroll"></p>
+                        <p id="mapUpdatedTime" className="whitespace-nowrap"></p>
                     </div>
                     <div id="mapActions" className="flex flex-row justify-between gap-2 mr-0 ml-auto">
                         <Link className="dark_button_mini" onClick={fetchLatestData} disabled={loading} href="">
