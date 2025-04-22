@@ -18,30 +18,34 @@ export async function fetchGTFSData() {
         const SHAPES_TEXT_FILE_NAME = "shapes.txt";
         const STOP_TIMES_TEXT_FILE_NAME = "stop_times.txt";
         const CALENDAR_TEXT_FILE_NAME = "calendar.txt";
+        const TRIPS_TEXT_FILE_NAME = "trips.txt";
 
 
         const stopsTxt = zip.file(STOPS_TEXT_FILE_NAME);
         const shapesTxt = zip.file(SHAPES_TEXT_FILE_NAME);
         const stopTimesTxt = zip.file(STOP_TIMES_TEXT_FILE_NAME);
         const calendarTxt = zip.file(CALENDAR_TEXT_FILE_NAME);
+        const tripsTxt = zip.file(TRIPS_TEXT_FILE_NAME);
 
 
         if (!stopsTxt) throw new Error(STOPS_TEXT_FILE_NAME + " not found in ZIP");
         if (!shapesTxt) throw new Error(SHAPES_TEXT_FILE_NAME + " not found in ZIP");
         if (!stopTimesTxt) throw new Error(STOP_TIMES_TEXT_FILE_NAME + " not found in ZIP");
         if (!calendarTxt) throw new Error(CALENDAR_TEXT_FILE_NAME + " not found in ZIP");
+        if (!tripsTxt) throw new Error(TRIPS_TEXT_FILE_NAME + " not found in ZIP");
 
 
         const stopsText = await stopsTxt.async("text");
         const shapesText = await shapesTxt.async("text");
         const stopTimesText = await stopTimesTxt.async("text");
         const calendarText = await calendarTxt.async("text");
-
+        const tripsText = await tripsTxt.async("text");
 
         const stopsLines = stopsText.trim().split("\n");
         const shapeLines = shapesText.trim().split("\n");
         const stopTimesLines = stopTimesText.trim().split("\n");
         const calendarLines = calendarText.trim().split("\n");
+        const tripsLines = tripsText.trim().split("\n");
 
 
         // ====================== returned objects ====================== //
@@ -104,11 +108,11 @@ export async function fetchGTFSData() {
             const values = stopsLines[i].split(",");
             if (values.length === 9) {
                 stops[values[0]] = {
-                    "coordinates": [values[4], values[5]]
+                    coordinates: [values[4], values[5]],
+                    name:        values[2]
                 };
             }
         }
-
 
         // ====================== Process Shapes.txt ====================== //
         let currentTrainId = "";
@@ -213,6 +217,17 @@ export async function fetchGTFSData() {
                     6: (values[8] == 1)    // saturday
                 };
                 trains[trainId]["daysOfOperation"] = days;
+            }
+        }
+
+        // ====================== Process trips.txt ====================== //
+        for (let i = 1; i < tripsLines.length; i++) {
+            const cols = tripsLines[i].split(",");
+            const tripId        = cols[2];
+            const shapeId       = cols[3];
+            const tripHeadsign  = cols[5];
+            if (trains[shapeId]) {
+            trains[shapeId].tripHeadsign = tripHeadsign;
             }
         }
 

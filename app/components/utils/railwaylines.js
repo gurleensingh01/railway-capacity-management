@@ -201,7 +201,8 @@ export function addRailwayLines({
         if (canUseFullMap || isPointInBounds(trainCoordinates)) {
           trainShapesToRender[tripId] = {
             coordinates: trainCoordinates,
-            isMoving: trainIsMoving
+            isMoving: trainIsMoving,
+            headsign: trains[tripId]?.tripHeadsign || ""  
           };
         }
       }

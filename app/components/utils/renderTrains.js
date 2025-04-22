@@ -28,7 +28,7 @@ export function renderTrains(
     const buttonInactive = buttonBase + " map_menu_item_inactive";
     menu.innerHTML = (Object.keys(trainShapesToRender).length === 0) ? "There are currently no trains running in your region." : "";
     for (const tripId in trainShapesToRender) {
-      const { coordinates, isMoving } = trainShapesToRender[tripId];
+      const { coordinates, isMoving, headsign } = trainShapesToRender[tripId];
       const layerId = getUUIDForLayer();
   
       map.addSource(layerId, {
@@ -112,10 +112,11 @@ export function renderTrains(
       } else {
         trainDistanceRemaining = Math.round(trainDistanceRemaining * 2) / 2;
       }
-      let trainInfoContent = `<b>Train ID</b><br>${tripId}<br><br>
-            <b>Location</b><br>Lon: ${coordinates[0]}<br>Lat: ${coordinates[1]}<br><br>
-            <b>Status</b><br>${isMoving ? "Enroute to next station" : "Stopped at station"}<br><br>
-            <b>Distance Remaining</b><br>${trainDistanceRemaining}  ${unit}
+      let trainInfoContent = `<b>Train ID</b>${tripId}<br><br>
+            <b>Headsign</b>${headsign || "N/A"}<br><br>
+            <b>Location</b>Lat: ${coordinates[1]}<br>Long: ${coordinates[0]}<br><br>
+            <b>Status</b>${isMoving ? "Enroute to next station" : "Stopped at station"}<br><br>
+            <b>Distance Remaining</b>${trainDistanceRemaining}  ${unit}
       `;
 
       map.addInteraction(layerId + "_click", {

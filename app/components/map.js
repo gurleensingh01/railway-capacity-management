@@ -499,8 +499,11 @@ export function Map({ region }) {
               
                   let stopInfoP = document.createElement("p");
                   stopInfoP.id = stopId + "_menu_p_constant";
-                  let constantInfoStringBuilder = "<b>Stop ID</b><br>" + stopId + "<br><br>";
-              
+                  const stopName = stops[stopId]?.name ?? "Unknown";
+                  let constantInfoStringBuilder =
+                  `<b>Stop ID</b><br>${stopId}<br><br>` +
+                  `<b>Stop Name</b><br>${stopName}<br><br>`;
+                  
                   let schedule = stopTrainSchedule[stopId];
                   let hasTrains = false;
                   constantInfoStringBuilder += "<b>Scheduled Trains</b>";
