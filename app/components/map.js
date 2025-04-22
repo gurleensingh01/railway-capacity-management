@@ -242,59 +242,28 @@ export function Map({ region }) {
 
         // ==================== on map load ==================== //
         map.on("load", () => {
-
-            // render the rain layers
-            const openweathermapKey = process.env.NEXT_PUBLIC_OPENWEATHERMAP_KEY;
-            // 1/4
-            // top-left quarter
-            // "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey
-            
-            // ======= if we ever need more than just north america ======= //
-            // 2/4
-            // bottom-left quarter
-            // "https://tile.openweathermap.org/map/precipitation/1/0/1.png?appid=" + openweathermapKey
-            // 3/4
-            // top-right quarter
-            // "https://tile.openweathermap.org/map/precipitation/1/1/0.png?appid=" + openweathermapKey
-            // 4/4
-            // bottom-right quarter
-            // "https://tile.openweathermap.org/map/precipitation/1/1/1.png?appid=" + openweathermapKey
-
-            // check with this to ensure correct rendering
-            // https://openweathermap.org/weathermap?basemap=map&cities=false&layer=radar&lat=30&lon=-20&zoom=3
-            // check this for more styles
-            // https://openweathermap.org/api/weathermaps
-
-            map.addSource("rain-top-left", {
-                "type": "image",
-                "url": "https://tile.openweathermap.org/map/precipitation/1/0/0.png?appid=" + openweathermapKey,
-                "coordinates": [
-                    // lon - lat
-                    // top left
-                    [-179, 85],
-                    // top right
-                    [0.0, 85],
-                    // bottom right
-                    [0.0, 0.0],
-                    // bottom left
-                    [-179, 0.0]
-                ]
+            const key = process.env.NEXT_PUBLIC_OPENWEATHERMAP_KEY;
+        
+            map.addSource("precipitation", {
+              type: "raster",
+              tiles: [
+                `https://tile.openweathermap.org/map/precipitation/{z}/{x}/{y}.png?appid=${key}`
+                // or:
+                // `https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}@2x.png?appid=${key}`
+              ],
+              tileSize: 256,
             });
+          
+            // Render it as a semi-transparent raster layer
             map.addLayer({
-                "id": "rain-top-left",
-                "type": "raster",
-                "source": "rain-top-left",
-                "layout": {
-                    visibility: "visible"
-                },
-                "paint": {
-                    "raster-contrast": 0.333,
-                    "raster-fade-duration": 0,
-                    "raster-opacity": 0.667,
-                    "raster-resampling": "linear",
-                    "raster-saturation": 0.333
-                }
-            });
+              id: "precipitation",
+              type: "raster",
+              source: "precipitation",
+              paint: {
+                "raster-opacity": 0.6,
+                "raster-contrast": 0.3,
+              },
+            });          
 
             // map action buttons
             const mapActions = document.getElementById("mapActions");
